@@ -1,0 +1,31 @@
+name: Auto Video Creator
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # يعمل تلقائياً كل يوم الساعة 12 ظهراً
+  workflow_dispatch: # هذا الزر يسمح لك بتشغيله يدوياً الآن للتجربة
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install feedparser edge-tts moviepy requests requests_toolbelt
+
+      - name: Run automation script
+        env:
+          PEXELS_API: ${{ secrets.PEXELS_API }}
+          DM_API_KEY: ${{ secrets.DM_API_KEY }}
+          DM_API_SECRET: ${{ secrets.DM_API_SECRET }}
+          DM_USER: ${{ secrets.DM_USER }}
+          DM_PASS: ${{ secrets.DM_PASS }}
+        run: python main.py
