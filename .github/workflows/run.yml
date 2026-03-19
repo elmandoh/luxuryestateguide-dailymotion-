@@ -2,12 +2,17 @@ name: Auto Video Creator
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # يعمل تلقائياً كل يوم الساعة 12 ظهراً
-  workflow_dispatch: # هذا الزر يسمح لك بتشغيله يدوياً الآن للتجربة
+    - cron: '0 */2 * * *' # يعمل تلقائياً كل ساعتين بالظبط
+  workflow_dispatch: # زر التشغيل اليدوي للتجربة
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # منح صلاحيات الكتابة لتحديث ملف الذاكرة (last_post.txt)
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -29,3 +34,12 @@ jobs:
           DM_USER: ${{ secrets.DM_USER }}
           DM_PASS: ${{ secrets.DM_PASS }}
         run: python main.py
+
+      - name: Commit and Push Last Post Update
+        run: |
+          git config --global user.name 'GitHub Action Bot'
+          git config --global user.email 'action@github.com'
+          # التحقق إذا كان ملف الذاكرة قد تغير أم لا قبل الحفظ
+          git add last_post.txt
+          git commit -m "Update last published post record" || exit 0
+          git push
