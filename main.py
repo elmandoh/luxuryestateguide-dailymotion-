@@ -1,8 +1,6 @@
 import feedparser, asyncio, edge_tts, requests, os, re
-# استدعاء مباشر للأدوات لتجنب مشكلة الـ editor
-from moviepy.video.io.VideoFileClip import VideoFileClip
-from moviepy.audio.io.AudioFileClip import AudioFileClip
-from moviepy.video.compositing.concatenate import concatenate_videoclips
+# الاستدعاء الجديد في الإصدارات الحديثة 2.0+
+from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
 from requests_toolbelt import MultipartEncoder
 
 # إعدادات البيئة
@@ -30,19 +28,20 @@ async def main():
     if os.path.exists("last_post.txt"):
         with open("last_post.txt", "r") as f:
             if f.read().strip() == title:
-                print("⚠️ Already published.")
+                print("⚠️ Already published. Skipping...")
                 return
 
     print(f"🌟 New Post: {title}")
 
     # توليد الصوت
     voice_path = "voice.mp3"
-    communicate = edge_tts.Communicate(f"{title}. {clean_html(post.content[0].value)[:2000]}", "en-US-GuyNeural")
+    text_to_speak = f"{title}. {clean_html(post.content[0].value)[:2000]}"
+    communicate = edge_tts.Communicate(text_to_speak, "en-US-GuyNeural")
     await communicate.save(voice_path)
     audio = AudioFileClip(voice_path)
     duration = audio.duration
 
-    # جلب الفيديوهات
+    # جلب الفيديوهات من Pexels
     headers = {"Authorization": PEXELS_API}
     pex_res = requests.get(f"https://api.pexels.com/videos/search?query=luxury+mansion&per_page=5&orientation=portrait", headers=headers).json()
     
@@ -51,21 +50,30 @@ async def main():
     for i, v in enumerate(pex_res.get('videos', [])):
         if total_d >= duration: break
         v_url = v['video_files'][0]['link']
-        with open(f"v_{i}.mp4", "wb") as f: f.write(requests.get(v_url).content)
+        temp_name = f"v_{i}.mp4"
+        with open(temp_name, "wb") as f: f.write(requests.get(v_url).content)
         
-        # استدعاء مباشر للفيديو
-        c = VideoFileClip(f"v_{i}.mp4").resize(height=1920).without_audio()
+        c = VideoFileClip(temp_name).resized(height=1920).without_audio() # تم تغيير resize إلى resized
         clips.append(c)
         total_d += c.duration
 
-    print("✂️ Finalizing video...")
-    final_video = concatenate_videoclips(clips).subclip(0, duration).set_audio(audio)
+    print("✂️ Finalizing video assembly...")
+    # الدمج في الإصدار الجديد
+    final_video = concatenate_videoclips(clips).subclipped(0, duration) # تم تغيير subclip إلى subclipped
+    final_video = final_video.with_audio(audio) # تم تغيير set_audio إلى with_audio
+    
     final_video.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
 
     # الرفع لديلى موشن
+    print("🚀 Uploading to Dailymotion...")
     auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
-    token = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json().get("access_token")
+    token_res = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
+    token = token_res.get("access_token")
     
+    if not token:
+        print("❌ Auth failed!")
+        return
+
     headers = {"Authorization": f"Bearer {token}"}
     up_url = requests.get("https://api.dailymotion.com/file/upload", headers=headers).json()['upload_url']
     
@@ -77,7 +85,7 @@ async def main():
     })
 
     with open("last_post.txt", "w") as f: f.write(title)
-    print("✅ Done!")
+    print("✅ Video created and uploaded successfully!")
 
 if __name__ == "__main__":
     asyncio.run(main())
