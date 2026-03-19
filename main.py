@@ -1,14 +1,8 @@
 import feedparser, asyncio, edge_tts, requests, os, re
-try:
-    from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-except ImportError:
-    from moviepy.video.io.VideoFileClip import VideoFileClip
-    from moviepy.audio.io.AudioFileClip import AudioFileClip
-    from moviepy.video.compositing.concatenate import concatenate_videoclips
-
+import moviepy.editor as mp # استدعاء شامل وبسيط
 from requests_toolbelt import MultipartEncoder
 
-# حل مشكلة ملفات النظام في GitHub
+# حل مشكلة المحرك البصري في سيرفرات جيت هاب
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
 # 1. إعدادات المفاتيح (تأكد أنها في GitHub Secrets)
