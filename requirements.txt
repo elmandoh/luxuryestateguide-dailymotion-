@@ -1,0 +1,5 @@
+feedparser
+edge-tts
+moviepy
+requests
+requests_toolbelt
