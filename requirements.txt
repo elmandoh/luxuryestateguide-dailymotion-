@@ -1,5 +1,6 @@
 feedparser
-edge-tts
+edge_tts
 requests
 requests_toolbelt
-moviepy
+moviepy==1.0.3
+decorator==4.4.2
