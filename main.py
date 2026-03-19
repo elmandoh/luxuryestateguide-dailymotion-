@@ -1,5 +1,6 @@
 import feedparser, asyncio, edge_tts, requests, os, re
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+import moviepy.editor as mp  # استدعاء بديل وأكثر استقراراً
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 from requests_toolbelt import MultipartEncoder
 
 # 1. إعدادات المفاتيح (تأكد أنها في GitHub Secrets)
