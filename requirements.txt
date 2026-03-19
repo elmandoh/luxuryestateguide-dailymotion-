@@ -4,3 +4,4 @@ moviepy==1.0.3
 requests
 requests_toolbelt
 proglog
+decorator==4.4.2
