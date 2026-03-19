@@ -2,7 +2,7 @@ name: Auto Video Creator
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # يعمل تلقائياً كل ساعتين بالظبط
+    - cron: '0 */2 * * *' # يعمل تلقائياً كل ساعتين
   workflow_dispatch: # زر التشغيل اليدوي للتجربة
 
 jobs:
@@ -15,18 +15,22 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # التحديث للإصدار الرابع
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # التحديث للإصدار الخامس
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg # تثبيت محرك الفيديو الأساسي
+
+      - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install feedparser edge-tts requests requests_toolbelt moviepy
-          sudo apt-get install ffmpeg
 
       - name: Run automation script
         env:
@@ -41,7 +45,6 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action Bot'
           git config --global user.email 'action@github.com'
-          # التحقق إذا كان ملف الذاكرة قد تغير أم لا قبل الحفظ
           git add last_post.txt
           git commit -m "Update last published post record" || exit 0
           git push
