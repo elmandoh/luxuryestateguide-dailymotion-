@@ -1,10 +1,14 @@
 import feedparser, asyncio, edge_tts, requests, os, re
-import moviepy.editor as mp
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+try:
+    from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+except ImportError:
+    from moviepy.video.io.VideoFileClip import VideoFileClip
+    from moviepy.audio.io.AudioFileClip import AudioFileClip
+    from moviepy.video.compositing.concatenate import concatenate_videoclips
+
 from requests_toolbelt import MultipartEncoder
 
-# السطر ده بيحل مشكلة الـ Policy في سيرفرات GitHub Linux
-import os
+# حل مشكلة ملفات النظام في GitHub
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
 # 1. إعدادات المفاتيح (تأكد أنها في GitHub Secrets)
