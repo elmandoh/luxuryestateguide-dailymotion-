@@ -1,9 +1,8 @@
 feedparser
 edge-tts
-moviepy==1.0.3
-decorator==4.4.2
 requests
 requests_toolbelt
-proglog
+moviepy==1.0.3
+decorator==4.4.2
 imageio==2.25.1
 imageio-ffmpeg==0.4.8
