@@ -1,7 +1,11 @@
 import feedparser, asyncio, edge_tts, requests, os, re
-import moviepy.editor as mp  # استدعاء بديل وأكثر استقراراً
+import moviepy.editor as mp
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 from requests_toolbelt import MultipartEncoder
+
+# السطر ده بيحل مشكلة الـ Policy في سيرفرات GitHub Linux
+import os
+os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
 
 # 1. إعدادات المفاتيح (تأكد أنها في GitHub Secrets)
 PEXELS_API = os.getenv("PEXELS_API")
