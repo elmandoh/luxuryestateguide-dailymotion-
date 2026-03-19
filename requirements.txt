@@ -1,5 +1,6 @@
 feedparser
 edge-tts
-moviepy
+moviepy==1.0.3
 requests
 requests_toolbelt
+proglog
