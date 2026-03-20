@@ -60,7 +60,7 @@ async def main():
     final_video = final_bg.subclipped(0, duration).with_audio(audio)
     final_video.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
 
-    # 4. الرفع (مع نظام فحص الأخطاء الجديد)
+ # جزء الرفع المطور لمعرفة سبب الخطأ
     print("🚀 Attempting to Upload...")
     auth = {
         "grant_type": "password",
@@ -72,11 +72,14 @@ async def main():
     }
     
     r = requests.post("https://api.dailymotion.com/oauth/token", data=auth)
+    print(f"Auth Response: {r.status_code}") # هيطبع كود الاستجابة
+    
     if r.status_code != 200:
-        print(f"❌ Login Failed: {r.text}")
+        print(f"❌ Login Failed! Reason: {r.text}") # هيقولنا السبب الحقيقي هنا
         return
         
-    token = r.json().get("access_token")
+    token_data = r.json()
+    token = token_data.get("access_token")
     headers = {"Authorization": f"Bearer {token}"}
     
     # طلب رابط الرفع
@@ -84,10 +87,14 @@ async def main():
     if up_req.status_code != 200:
         print(f"❌ Could not get upload URL: {up_req.text}")
         return
-        
-    up_url = up_req.json().get('upload_url')
-    m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
-    v_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
+    
+    upload_data = up_req.json()
+    if 'upload_url' not in upload_data:
+        print(f"❌ upload_url missing! Full response: {upload_data}")
+        return
+
+    up_url = upload_data['upload_url']
+    print(f"✅ Got Upload URL: {up_url}")
     
     # النشر النهائي
     requests.post("https://api.dailymotion.com/me/videos", headers=headers, data={
