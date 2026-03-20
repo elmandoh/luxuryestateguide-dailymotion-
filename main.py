@@ -1,5 +1,5 @@
 import feedparser, asyncio, edge_tts, requests, os, re
-from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips, vfx
+from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
 from requests_toolbelt import MultipartEncoder
 
 os.environ["IMAGEIO_FFMPEG_EXE"] = "/usr/bin/ffmpeg"
@@ -36,7 +36,7 @@ async def main():
     audio = AudioFileClip(voice_path)
     duration = audio.duration
 
-    # 2. جلب فيديوهات (زودنا العدد لـ 10 لضمان التغطية)
+    # 2. جلب فيديوهات
     headers = {"Authorization": PEXELS_API}
     pex_res = requests.get(f"https://api.pexels.com/videos/search?query=luxury+mansion&per_page=10&orientation=portrait", headers=headers).json()
     
@@ -51,32 +51,55 @@ async def main():
         current_d += c.duration
         if current_d >= duration: break
 
-    # 3. دمج ذكي (لو الفيديوهات قصيرة هيكررها)
+    # 3. الدمج
     final_bg = concatenate_videoclips(clips)
     if final_bg.duration < duration:
-        # تكرار الفيديو لو لسه الصوت شغال
         loop_count = int(duration / final_bg.duration) + 1
         final_bg = concatenate_videoclips([final_bg] * loop_count)
     
     final_video = final_bg.subclipped(0, duration).with_audio(audio)
     final_video.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
 
-    # 4. الرفع لديلى موشن
-    print("🚀 Uploading...")
-    auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
-    token = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json().get("access_token")
+    # 4. الرفع (مع نظام فحص الأخطاء الجديد)
+    print("🚀 Attempting to Upload...")
+    auth = {
+        "grant_type": "password",
+        "client_id": DM_KEY,
+        "client_secret": DM_SECRET,
+        "username": DM_USER,
+        "password": DM_PASS,
+        "scope": "manage_videos"
+    }
     
+    r = requests.post("https://api.dailymotion.com/oauth/token", data=auth)
+    if r.status_code != 200:
+        print(f"❌ Login Failed: {r.text}")
+        return
+        
+    token = r.json().get("access_token")
     headers = {"Authorization": f"Bearer {token}"}
-    up_url = requests.get("https://api.dailymotion.com/file/upload", headers=headers).json()['upload_url']
+    
+    # طلب رابط الرفع
+    up_req = requests.get("https://api.dailymotion.com/file/upload", headers=headers)
+    if up_req.status_code != 200:
+        print(f"❌ Could not get upload URL: {up_req.text}")
+        return
+        
+    up_url = up_req.json().get('upload_url')
     m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
     v_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
     
+    # النشر النهائي
     requests.post("https://api.dailymotion.com/me/videos", headers=headers, data={
-        "url": v_url, "title": title[:100], "published": "true", "channel": "lifestyle"
+        "url": v_url, 
+        "title": title[:100], 
+        "description": f"{title}\n\n#luxury #realestate",
+        "published": "true", 
+        "channel": "lifestyle"
     })
 
     with open("last_post.txt", "w") as f: f.write(title)
-    print("✅ SUCCESS!")
+    print("✅ SUCCESS! Video is live.")
 
 if __name__ == "__main__":
     asyncio.run(main())
