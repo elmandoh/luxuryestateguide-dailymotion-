@@ -1,85 +1,69 @@
-import feedparser, asyncio, edge_tts, requests, os, json
-from groq import Groq
-from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
-from requests_toolbelt import MultipartEncoder
+import requests
+import json
+from gtts import gTTS
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+import os
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-PEXELS_API = os.getenv("PEXELS_API")
-DM_KEY = os.getenv("DM_API_KEY")
-DM_SECRET = os.getenv("DM_API_SECRET")
-DM_USER = os.getenv("DM_USER")
-DM_PASS = os.getenv("DM_PASS")
+# 1️⃣ جلب التريندات من Google Trends API (مثال مبسط)
+def get_trending_topic():
+    # هنا ممكن تستخدم Google Trends API أو أي مصدر تريندات
+    # للتجربة هنرجع كلمة ثابتة
+    return "Artificial Intelligence"
 
-# Stable RSS source
-NEWS_RSS = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
+# 2️⃣ توليد نص باستخدام Groq
+def generate_script(topic, groq_api_key):
+    headers = {"Authorization": f"Bearer {groq_api_key}"}
+    payload = {"prompt": f"اكتب سكريبت قصير عن {topic}"}
+    # مثال مبسط، لازم تعدل حسب API الحقيقي
+    response = requests.post("https://api.groq.com/v1/chat", headers=headers, json=payload)
+    return response.json().get("text", f"هذا فيديو عن {topic}")
 
-async def main():
-    print("STEP 1: Fetching News...")
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    resp = requests.get(NEWS_RSS, headers=headers)
-    feed = feedparser.parse(resp.content)
-    
-    if not feed.entries: return
+# 3️⃣ تحويل النص إلى صوت
+def text_to_speech(text, filename="voice.mp3"):
+    tts = gTTS(text=text, lang="ar")
+    tts.save(filename)
+    return filename
 
-    processed = []
-    if os.path.exists("last_post.txt"):
-        with open("last_post.txt", "r") as f: processed = f.read().splitlines()
+# 4️⃣ جلب فيديو من Pexels API
+def get_video_from_pexels(query, pexels_api_key):
+    headers = {"Authorization": pexels_api_key}
+    url = f"https://api.pexels.com/videos/search?query={query}&per_page=1"
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    video_url = data["videos"][0]["video_files"][0]["link"]
+    video_file = "video.mp4"
+    with requests.get(video_url, stream=True) as r:
+        with open(video_file, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return video_file
 
-    target = next((e for e in feed.entries[:10] if e.title not in processed), None)
-    if not target: 
-        print("No new news found."); return
+# 5️⃣ دمج الصوت مع الفيديو
+def merge_audio_video(video_file, audio_file, output_file="final.mp4"):
+    video = VideoFileClip(video_file)
+    audio = AudioFileClip(audio_file)
+    final = video.set_audio(audio)
+    final.write_videofile(output_file, codec="libx264", audio_codec="aac")
+    return output_file
 
-    print(f"Target: {target.title}")
-
-    # STEP 2: Groq AI
-    try:
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[
-                {"role": "system", "content": "Return ONLY JSON."},
-                {"role": "user", "content": f"Create viral short video data for: {target.title}. JSON keys: script (30 words), search (1 keyword), title, tags."}
-            ],
-            response_format={"type": "json_object"}
-        )
-        ai_data = json.loads(completion.choices[0].message.content)
-    except Exception as e:
-        print(f"Groq Error: {e}"); return
-
-    # STEP 3: Voice
-    v_path = "voice.mp3"
-    await edge_tts.Communicate(ai_data['script'], "en-US-GuyNeural").save(v_path)
-    audio = AudioFileClip(v_path)
-
-    # STEP 4: Pexels
-    h_pex = {"Authorization": PEXELS_API}
-    v_res = requests.get(f"https://api.pexels.com/videos/search?query={ai_data['search']}&per_page=3&orientation=portrait", headers=h_pex).json()
-    
-    clips = []
-    for i, v in enumerate(v_res.get('videos', [])):
-        v_url = v['video_files'][0]['link']
-        with open(f"v{i}.mp4", "wb") as f: f.write(requests.get(v_url).content)
-        clips.append(VideoFileClip(f"v{i}.mp4").resized(height=1920).without_audio())
-
-    # STEP 5: Editing
-    final_bg = concatenate_videoclips(clips)
-    if final_bg.duration < audio.duration: final_bg = concatenate_videoclips([final_bg]*2)
-    final_v = final_bg.subclipped(0, audio.duration).with_audio(audio)
-    final_v.write_videofile("final.mp4", fps=24, codec="libx264")
-
-    # STEP 6: Dailymotion
-    auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
-    token = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json().get("access_token")
-    
-    if token:
-        up_url = requests.get("https://api.dailymotion.com/file/upload", headers={"Authorization": f"Bearer {token}"}).json()['upload_url']
-        m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
-        f_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
-        
-        requests.post("https://api.dailymotion.com/me/videos", headers={"Authorization": f"Bearer {token}"}, data={
-            "url": f_url, "title": ai_data['title'][:100], "published": "true", "channel": "news"
-        })
-        with open("last_post.txt", "a") as f: f.write(target.title + "\n")
-        print("✅ Success!")
+# 6️⃣ رفع الفيديو على Dailymotion
+def upload_to_dailymotion(video_file, access_token):
+    url = "https://api.dailymotion.com/me/videos"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    files = {"file": open(video_file, "rb")}
+    data = {"title": "فيديو تريند", "published": "true"}
+    response = requests.post(url, headers=headers, files=files, data=data)
+    return response.json()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    pexels_api_key = os.getenv("PEXELS_API_KEY")
+    dailymotion_token = os.getenv("DAILYMOTION_ACCESS_TOKEN")
+
+    topic = get_trending_topic()
+    script = generate_script(topic, groq_api_key)
+    audio_file = text_to_speech(script)
+    video_file = get_video_from_pexels(topic, pexels_api_key)
+    final_video = merge_audio_video(video_file, audio_file)
+    result = upload_to_dailymotion(final_video, dailymotion_token)
+    print("Uploaded:", result)
