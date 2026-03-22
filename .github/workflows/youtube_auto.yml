@@ -1,24 +1,23 @@
-name: YouTube Auto Shorts
+name: YouTube Shorts Auto
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 12 * * *' # بيشتغل مرة واحدة في اليوم الساعة 12 ظهراً
+    - cron: '0 18 * * *' # الساعة 6 مساءً بتوقيت جرينتش (ذروة المشاهدة)
+  workflow_dispatch: # للتشغيل اليدوي في أي وقت
 
 jobs:
-  build:
+  upload:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v4
-        with: {python-version: '3.10'}
-      - name: Install Dependencies
-        run: |
-          pip install groq feedparser edge_tts moviepy google-python-api-client
-      - name: Run YouTube Script
+        with:
+          python-version: '3.10'
+      - name: Install Libs
+        run: pip install google-api-python-client google-auth-oauthlib groq feedparser moviepy edge_tts
+      - name: Run Upload
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PEXELS_API: ${{ secrets.PEXELS_API }}
-          #secrets اليوتيوب هنا
         run: python youtube_worker.py
