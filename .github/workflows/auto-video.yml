@@ -29,6 +29,10 @@ jobs:
          python -c "import moviepy; print('moviepy version:', getattr(moviepy,'__version__',None))"
          python -c "import pkgutil, moviepy; print('moviepy modules:', [m.name for m in pkgutil.iter_modules(moviepy.__path__)])"
          python -c "import moviepy.editor as me; print('editor ok', hasattr(me,'VideoFileClip'))" || true
+      - name: Quick import test
+        run: |
+         python -c "from moviepy.video.io.VideoFileClip import VideoFileClip; print('VideoFileClip OK')"
+         python -c "from moviepy.audio.io.AudioFileClip import AudioFileClip; print('AudioFileClip OK')"
 
       - name: Run script
         env:
