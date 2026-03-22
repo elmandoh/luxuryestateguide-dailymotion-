@@ -76,29 +76,52 @@ async def main():
     final_v = final_bg.subclipped(0, audio.duration).with_audio(audio)
     final_v.write_videofile("final.mp4", fps=24, codec="libx264")
 
-    # STEP 6: Upload to Dailymotion
+  # STEP 6: Upload to Dailymotion (نسخة مطورة لكشف الخطأ)
     print("🚀 STEP 6: Publishing to Dailymotion...")
-    auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
-    token_res = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
-    token = token_res.get("access_token")
+    auth = {
+        "grant_type": "password",
+        "client_id": DM_KEY,
+        "client_secret": DM_SECRET,
+        "username": DM_USER,
+        "password": DM_PASS,
+        "scope": "manage_videos"
+    }
     
-    if token:
-        # ... (نفس خطوات الرفع السابقة)
-        response = requests.post("https://api.dailymotion.com/me/videos", headers={"Authorization": f"Bearer {token}"}, data={
-            "url": f_url,
-            "title": ai_data['title'][:100],
-            "description": ai_data['script'],
-            "published": "true",
-            "channel": "news"
-        }).json()
+    token_resp = requests.post("https://api.dailymotion.com/oauth/token", data=auth)
+    token_data = token_resp.json()
+    
+    if "access_token" in token_data:
+        token = token_data["access_token"]
+        print("✅ Access Token Obtained!")
         
-        video_id = response.get("id")
-        print(f"✅ SUCCESS! Video ID: {video_id}")
-        print(f"🔗 Video Link: https://www.dailymotion.com/video/{video_id}")
+        # طلب رابط الرفع
+        up_url_resp = requests.get("https://api.dailymotion.com/file/upload", 
+                                   headers={"Authorization": f"Bearer {token}"}).json()
+        up_url = up_url_resp.get('upload_url')
         
-        with open("last_post.txt", "a") as f: f.write(target.title + "\n")
+        # رفع الملف
+        m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
+        f_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
+        
+        # إنشاء الفيديو في القناة
+        create_v = requests.post("https://api.dailymotion.com/me/videos", 
+                                 headers={"Authorization": f"Bearer {token}"}, 
+                                 data={
+                                     "url": f_url,
+                                     "title": ai_data['title'][:100],
+                                     "description": ai_data['script'],
+                                     "published": "true",
+                                     "channel": "news",
+                                     "is_created_for_kids": "false"
+                                 }).json()
+        
+        if "id" in create_v:
+            print(f"✅ DONE! Video Live at: https://www.dailymotion.com/video/{create_v['id']}")
+            with open("last_post.txt", "a") as f: f.write(target.title + "\n")
+        else:
+            print(f"❌ Creation Failed: {create_v}")
     else:
-        print("❌ Dailymotion Auth Failed.")
+        print(f"❌ Auth Failed! Response: {token_data}") # هيطبع لك السبب الحقيقي هنا
 
 if __name__ == "__main__":
     asyncio.run(main())
