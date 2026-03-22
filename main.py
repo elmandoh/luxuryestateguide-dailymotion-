@@ -9,16 +9,15 @@ def get_trending_topic():
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        # ناخد أول تريند من أول قائمة
-        return data[0][0]
+        return data[0][0]  # أول تريند
     return "Trending"
 
 # 2️⃣ اختيار القناة حسب الموضوع
 def choose_channel(topic):
     topic = topic.lower()
-    if "news" in topic or "politics" in topic or "حدث" in topic:
+    if "news" in topic or "حدث" in topic or "سياسة" in topic:
         return "news"
-    elif "ai" in topic or "technology" in topic or "tech" in topic or "ذكاء اصطناعي" in topic:
+    elif "ai" in topic or "tech" in topic or "تكنولوجيا" in topic or "ذكاء اصطناعي" in topic:
         return "tech"
     elif "sport" in topic or "كرة" in topic or "رياضة" in topic:
         return "sports"
@@ -112,6 +111,7 @@ if __name__ == "__main__":
     dm_pass = os.getenv("DM_PASS")
 
     topic = get_trending_topic()
+    print("Selected Trend:", topic)
     script = generate_script(topic, groq_api_key)
     audio_file = text_to_speech(script)
     video_file = get_video_from_pexels(topic, pexels_api_key)
