@@ -13,6 +13,7 @@ except Exception:
         print("Import moviepy failed:", e)
         raise
 
+
 # جلب تريند من Google Trends TV
 def get_trending_topic():
     try:
