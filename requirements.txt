@@ -3,3 +3,9 @@ edge-tts
 requests
 requests_toolbelt
 moviepy>=2.0.0
+groq
+feedparser
+edge-tts
+moviepy
+requests
+requests_toolbelt
