@@ -3,11 +3,37 @@ import os
 from gtts import gTTS
 from moviepy.editor import VideoFileClip, AudioFileClip
 
-# 1️⃣ جلب موضوع تريند (مثال ثابت للتجربة)
+# 1️⃣ جلب التريند من Google Trends TV
 def get_trending_topic():
-    return "Artificial Intelligence"
+    url = "https://trends.google.com/trends/hottrends/visualize/internal/data"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        # ناخد أول تريند من أول قائمة
+        return data[0][0]
+    return "Trending"
 
-# 2️⃣ توليد سكريبت باستخدام Groq
+# 2️⃣ اختيار القناة حسب الموضوع
+def choose_channel(topic):
+    topic = topic.lower()
+    if "news" in topic or "politics" in topic or "حدث" in topic:
+        return "news"
+    elif "ai" in topic or "technology" in topic or "tech" in topic or "ذكاء اصطناعي" in topic:
+        return "tech"
+    elif "sport" in topic or "كرة" in topic or "رياضة" in topic:
+        return "sports"
+    elif "music" in topic or "أغنية" in topic:
+        return "music"
+    elif "game" in topic or "gaming" in topic or "لعبة" in topic:
+        return "gaming"
+    elif "animal" in topic or "حيوان" in topic or "nature" in topic:
+        return "animals"
+    elif "car" in topic or "auto" in topic or "سيارة" in topic:
+        return "auto"
+    else:
+        return "people"
+
+# 3️⃣ توليد سكريبت باستخدام Groq
 def generate_script(topic, groq_api_key):
     headers = {"Authorization": f"Bearer {groq_api_key}"}
     payload = {"prompt": f"اكتب سكريبت قصير عن {topic}"}
@@ -16,13 +42,13 @@ def generate_script(topic, groq_api_key):
         return response.json().get("text", f"هذا فيديو عن {topic}")
     return f"هذا فيديو عن {topic}"
 
-# 3️⃣ تحويل النص إلى صوت
+# 4️⃣ تحويل النص إلى صوت
 def text_to_speech(text, filename="voice.mp3"):
     tts = gTTS(text=text, lang="ar")
     tts.save(filename)
     return filename
 
-# 4️⃣ جلب فيديو من Pexels
+# 5️⃣ جلب فيديو من Pexels
 def get_video_from_pexels(query, pexels_api_key):
     headers = {"Authorization": pexels_api_key}
     url = f"https://api.pexels.com/videos/search?query={query}&per_page=1"
@@ -36,7 +62,7 @@ def get_video_from_pexels(query, pexels_api_key):
                 f.write(chunk)
     return video_file
 
-# 5️⃣ دمج الصوت مع الفيديو
+# 6️⃣ دمج الصوت مع الفيديو
 def merge_audio_video(video_file, audio_file, output_file="final.mp4"):
     video = VideoFileClip(video_file)
     audio = AudioFileClip(audio_file)
@@ -44,7 +70,7 @@ def merge_audio_video(video_file, audio_file, output_file="final.mp4"):
     final.write_videofile(output_file, codec="libx264", audio_codec="aac")
     return output_file
 
-# 6️⃣ الحصول على Access Token من Dailymotion
+# 7️⃣ الحصول على Access Token من Dailymotion
 def get_dm_token(api_key, api_secret, user, password):
     url = "https://api.dailymotion.com/oauth/token"
     data = {
@@ -56,24 +82,25 @@ def get_dm_token(api_key, api_secret, user, password):
         "scope": "manage_videos"
     }
     response = requests.post(url, data=data)
-    print("Token Response:", response.text)  # اطبع الرد علشان تتأكد
+    print("Token Response:", response.text)
     return response.json().get("access_token")
 
-# 7️⃣ رفع الفيديو على Dailymotion
-def upload_to_dailymotion(video_file, token):
+# 8️⃣ رفع الفيديو على Dailymotion
+def upload_to_dailymotion(video_file, token, topic):
+    channel = choose_channel(topic)
     url = "https://api.dailymotion.com/me/videos"
     headers = {"Authorization": f"Bearer {token}"}
     files = {"file": open(video_file, "rb")}
     data = {
-        "title": "فيديو تريند",
-        "description": "فيديو مولد أوتوماتيكياً باستخدام Groq وPexels",
-        "tags": "trend, ai, auto",
-        "channel": "news",   # لازم تختار قناة مناسبة
+        "title": f"فيديو تريند عن {topic}",
+        "description": f"فيديو مولد أوتوماتيكياً عن {topic} باستخدام Groq وPexels",
+        "tags": f"trend,{topic}",
+        "channel": channel,
         "published": "true",
         "private": "false"
     }
     response = requests.post(url, headers=headers, files=files, data=data)
-    print("Dailymotion Response:", response.text)  # اطبع الرد كامل
+    print("Dailymotion Response:", response.text)
     return response.json()
 
 if __name__ == "__main__":
@@ -91,5 +118,5 @@ if __name__ == "__main__":
     final_video = merge_audio_video(video_file, audio_file)
 
     token = get_dm_token(dm_api_key, dm_api_secret, dm_user, dm_pass)
-    result = upload_to_dailymotion(final_video, token)
+    result = upload_to_dailymotion(final_video, token, topic)
     print("Uploaded:", result)
