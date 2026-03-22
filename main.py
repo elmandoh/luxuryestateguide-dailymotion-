@@ -1,8 +1,8 @@
-import feedparser, asyncio, edge_tts, requests, os, re
+import feedparser, asyncio, edge_tts, requests, os, json, random
 from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
 from requests_toolbelt import MultipartEncoder
 
-# الإعدادات الأساسية
+# --- الإعدادات وجلب المفاتيح من البيئة ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 PEXELS_API = os.getenv("PEXELS_API")
 DM_KEY = os.getenv("DM_API_KEY")
@@ -10,7 +10,7 @@ DM_SECRET = os.getenv("DM_API_SECRET")
 DM_USER = os.getenv("DM_USER")
 DM_PASS = os.getenv("DM_PASS")
 
-# رابط تريندات جوجل (Global/US لجلب أعلى بحث)
+# رابط تريندات جوجل (Global - US) للحصول على أعلى بحث عالمي
 TRENDS_RSS = "https://trends.google.com/trends/trendingsearches/daily/rss?geo=US"
 
 def ask_groq(prompt):
@@ -25,68 +25,114 @@ def ask_groq(prompt):
     return response.json()['choices'][0]['message']['content']
 
 async def main():
-    print("🔥 Analyzing Google Hot Trends via Groq...")
+    print("🔥 STEP 1: Fetching Google Trends...")
     feed = feedparser.parse(TRENDS_RSS)
-    if not feed.entries: return
+    if not feed.entries:
+        print("❌ No trends found.")
+        return
     
-    top_trend = feed.entries[0].title
-    print(f"🌟 Top Trend Found: {top_trend}")
-
-    # منع التكرار
+    # التأكد من عدم تكرار التريندات
+    processed_trends = []
     if os.path.exists("last_post.txt"):
         with open("last_post.txt", "r") as f:
-            if f.read().strip() == top_trend:
-                print("⚠️ Already processed this trend.")
-                return
+            processed_trends = f.read().splitlines()
 
-    # طلب السكريبت والتفاصيل من Groq (بصيغة JSON)
+    target_entry = None
+    for entry in feed.entries[:10]: # فحص أول 10 تريندات
+        if entry.title not in processed_trends:
+            target_entry = entry
+            break
+
+    if not target_entry:
+        print("⚠️ All current trends already processed.")
+        return
+
+    top_trend = target_entry.title
+    print(f"🌟 Processing Trend: {top_trend}")
+
+    # --- استخدام Groq لتوليد السكريبت وتفاصيل الفيديو ---
+    print("🧠 STEP 2: Generating Script via Groq AI...")
     prompt = f"""
-    Create a viral short video content about the trend '{top_trend}'.
-    Return JSON format with: 
-    'script': (max 40 words, engaging),
-    'search_term': (best 1-word search for Pexels videos),
-    'title': (viral title with emojis),
-    'tags': (5 relevant hashtags)
+    Create a viral short video script about the trend '{top_trend}'. 
+    The tone should be exciting. 
+    Return ONLY a JSON object with these keys: 
+    "script": "a 30-word engaging script in English",
+    "search_term": "one specific keyword for Pexels videos",
+    "title": "a viral title with emojis",
+    "tags": "5 viral hashtags"
     """
-    ai_data = eval(ask_groq(prompt)) # تحويل النص لـ Dictionary
-    
-    # 1. توليد الصوت
+    ai_json = json.loads(ask_groq(prompt))
+    print(f"✅ AI Script Generated: {ai_json['script'][:50]}...")
+
+    # --- توليد الصوت ---
+    print("🎙️ STEP 3: Generating Voice...")
     voice_path = "voice.mp3"
-    await edge_tts.Communicate(ai_data['script'], "en-US-GuyNeural").save(voice_path)
+    communicate = edge_tts.Communicate(ai_json['script'], "en-US-GuyNeural")
+    await communicate.save(voice_path)
     audio = AudioFileClip(voice_path)
     duration = audio.duration
 
-    # 2. جلب فيديوهات Pexels بناءً على ترشيح Groq
-    print(f"🎬 Searching Pexels for: {ai_data['search_term']}")
+    # --- جلب فيديوهات Pexels ---
+    print(f"📽️ STEP 4: Searching Pexels for: {ai_json['search_term']}")
     headers = {"Authorization": PEXELS_API}
-    pex_res = requests.get(f"https://api.pexels.com/videos/search?query={ai_data['search_term']}&per_page=5&orientation=portrait", headers=headers).json()
+    pex_url = f"https://api.pexels.com/videos/search?query={ai_json['search_term']}&per_page=5&orientation=portrait"
+    pex_res = requests.get(pex_url, headers=headers).json()
     
     clips = []
-    curr_d = 0
+    current_d = 0
     for i, v in enumerate(pex_res.get('videos', [])):
         v_url = v['video_files'][0]['link']
-        temp = f"v_{i}.mp4"
-        with open(temp, "wb") as f: f.write(requests.get(v_url).content)
-        c = VideoFileClip(temp).resized(height=1920).without_audio()
-        clips.append(c)
-        curr_d += c.duration
-        if curr_d >= duration: break
+        temp_name = f"v_{i}.mp4"
+        with open(temp_name, "wb") as f: f.write(requests.get(v_url).content)
+        clip = VideoFileClip(temp_name).resized(height=1920).without_audio()
+        clips.append(clip)
+        current_d += clip.duration
+        if current_d >= duration: break
 
-    # 3. مونتاج الفيديو
+    # --- المونتاج ---
+    print("🎬 STEP 5: Editing Video...")
     final_bg = concatenate_videoclips(clips)
     if final_bg.duration < duration:
-        final_bg = concatenate_videoclips([final_bg] * (int(duration/final_bg.duration)+1))
+        final_bg = concatenate_videoclips([final_bg] * (int(duration/final_bg.duration) + 1))
     
     final_video = final_bg.subclipped(0, duration).with_audio(audio)
     final_video.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
 
-    # 4. الرفع لـ Dailymotion
-    # (استخدم نفس كود الرفع السابق مع استخدام ai_data['title'] و ai_data['tags'])
-    print(f"🚀 Uploading: {ai_data['title']}")
-    # ... (كود الرفع هنا) ...
-
-    with open("last_post.txt", "w") as f: f.write(top_trend)
-    print("✅ Viral Trend Video is Live!")
+    # --- الرفع لـ Dailymotion ---
+    print(f"🚀 STEP 6: Uploading to Dailymotion: {ai_json['title']}")
+    auth_data = {
+        "grant_type": "password", "client_id": DM_KEY, 
+        "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"
+    }
+    r = requests.post("https://api.dailymotion.com/oauth/token", data=auth_data)
+    if r.status_code == 200:
+        token = r.json().get("access_token")
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # طلب رابط الرفع
+        up_url_res = requests.get("https://api.dailymotion.com/file/upload", headers=headers).json()
+        up_url = up_url_res['upload_url']
+        
+        # رفع الملف الحقيقي
+        m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
+        file_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
+        
+        # نشر الفيديو بالبيانات الجذابة من AI
+        requests.post("https://api.dailymotion.com/me/videos", headers=headers, data={
+            "url": file_url,
+            "title": ai_json['title'][:100],
+            "description": f"{ai_json['script']}\n\n#trending #news {ai_json['tags']}",
+            "tags": ai_json['tags'].replace("#", ""),
+            "published": "true",
+            "channel": "news"
+        })
+        
+        # تسجيل التريند كـ "تمت معالجته"
+        with open("last_post.txt", "a") as f:
+            f.write(top_trend + "\n")
+        print("✅ SUCCESS: Video is live!")
+    else:
+        print(f"❌ Upload failed. Auth response: {r.text}")
 
 if __name__ == "__main__":
     asyncio.run(main())
