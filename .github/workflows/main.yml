@@ -3,7 +3,7 @@ name: Auto Video Generator
 on:
   schedule:
     - cron: "0 12 * * *"   # يولد فيديو يوميًا الساعة 12 ظهراً
-  workflow_dispatch:        # تشغيل يدوي لو حبيت
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,13 +20,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests moviepy gtts
+          pip install requests moviepy gtts imageio[ffmpeg]
 
       - name: Run script
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          DAILYMOTION_CLIENT_ID: ${{ secrets.DAILYMOTION_CLIENT_ID }}
-          DAILYMOTION_CLIENT_SECRET: ${{ secrets.DAILYMOTION_CLIENT_SECRET }}
-          DAILYMOTION_ACCESS_TOKEN: ${{ secrets.DAILYMOTION_ACCESS_TOKEN }}
+          PEXELS_API: ${{ secrets.PEXELS_API }}
+          DM_API_KEY: ${{ secrets.DM_API_KEY }}
+          DM_API_SECRET: ${{ secrets.DM_API_SECRET }}
+          DM_USER: ${{ secrets.DM_USER }}
+          DM_PASS: ${{ secrets.DM_PASS }}
         run: python main.py
