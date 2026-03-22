@@ -26,29 +26,29 @@ def ask_groq(prompt):
 
 async def main():
     print("🔥 STEP 1: Fetching Google Trends...")
-    feed = feedparser.parse(TRENDS_RSS)
-    if not feed.entries:
-        print("❌ No trends found.")
-        return
     
-    # التأكد من عدم تكرار التريندات
-    processed_trends = []
-    if os.path.exists("last_post.txt"):
-        with open("last_post.txt", "r") as f:
-            processed_trends = f.read().splitlines()
-
-    target_entry = None
-    for entry in feed.entries[:10]: # فحص أول 10 تريندات
-        if entry.title not in processed_trends:
-            target_entry = entry
-            break
-
-    if not target_entry:
-        print("⚠️ All current trends already processed.")
+    # استخدام Headers لتجنب الحظر
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    try:
+        response = requests.get(TRENDS_RSS, headers=headers, timeout=15)
+        feed = feedparser.parse(response.content)
+    except Exception as e:
+        print(f"❌ Connection Error: {e}")
         return
 
-    top_trend = target_entry.title
-    print(f"🌟 Processing Trend: {top_trend}")
+    if not feed.entries:
+        print("❌ No trends found. Trying backup Global RSS...")
+        # رابط احتياطي عالمي في حال فشل الأول
+        response = requests.get("https://trends.google.com/trends/trendingsearches/daily/rss?geo=US", headers=headers)
+        feed = feedparser.parse(response.content)
+        if not feed.entries:
+            print("❌ Critical: Google Trends is unreachable.")
+            return
+    
+    # ... باقي الكود كما هو من أول فحص التكرار ...
 
     # --- استخدام Groq لتوليد السكريبت وتفاصيل الفيديو ---
     print("🧠 STEP 2: Generating Script via Groq AI...")
