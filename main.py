@@ -3,6 +3,15 @@ import os
 import time
 from gtts import gTTS
 from moviepy.editor import VideoFileClip, AudioFileClip
+try:
+    from moviepy.editor import VideoFileClip, AudioFileClip
+except Exception:
+    try:
+        from moviepy.video.io.VideoFileClip import VideoFileClip
+        from moviepy.audio.io.AudioFileClip import AudioFileClip
+    except Exception as e:
+        print("Import moviepy failed:", e)
+        raise
 
 # جلب تريند من Google Trends TV
 def get_trending_topic():
