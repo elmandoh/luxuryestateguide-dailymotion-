@@ -1,6 +1,6 @@
 groq
 feedparser
-edge-tts
+edge_tts
 moviepy>=2.1.1
 requests
 requests_toolbelt
