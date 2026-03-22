@@ -1,0 +1,32 @@
+name: Auto Video Generator
+
+on:
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: "0 12 * * *"  # يولد فيديو يوميًا الساعة 12
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install requests moviepy gtts
+
+      - name: Run script
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          DAILYMOTION_CLIENT_ID: ${{ secrets.DAILYMOTION_CLIENT_ID }}
+          DAILYMOTION_CLIENT_SECRET: ${{ secrets.DAILYMOTION_CLIENT_SECRET }}
+          DAILYMOTION_ACCESS_TOKEN: ${{ secrets.DAILYMOTION_ACCESS_TOKEN }}
+        run: python main.py
