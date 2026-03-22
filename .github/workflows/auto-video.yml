@@ -18,8 +18,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install requests gtts moviepy imageio[ffmpeg]
+             sudo apt-get update
+             sudo apt-get install -y ffmpeg
+              python -m pip install --upgrade pip
+              python -m pip install moviepy==2.0.0 imageio imageio-ffmpeg requests gtts tqdm
+
+      - name: Debug installed moviepy
+        run: |
+         python -c "import sys, moviepy; print('PYTHON:', sys.executable); print('moviepy version:', getattr(moviepy,'__version__',None)); import pkgutil; print('moviepy modules:', [m.name for m in pkgutil.iter_modules(moviepy.__path__)])"
+         python -c "import moviepy.editor as me; print('editor ok', hasattr(me,'VideoFileClip'))" || true
 
       - name: Run script
         env:
