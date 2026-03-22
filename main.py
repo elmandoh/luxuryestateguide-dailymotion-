@@ -68,9 +68,11 @@ def upload_to_dailymotion(video_file, token):
         "title": "فيديو تريند",
         "description": "فيديو مولد أوتوماتيكياً باستخدام Groq وPexels",
         "tags": "trend, ai, auto",
-        "channel": "news",   # لازم تختار قناة مناسبة زي news أو tech
+        "channel": "news",   # لازم تختار قناة مناسبة
         "published": "true",
         "private": "false"
     }
     response = requests.post(url, headers=headers, files=files, data=data)
+    print("Dailymotion Response:", response.text)  # اطبع الرد كامل
     return response.json()
+
