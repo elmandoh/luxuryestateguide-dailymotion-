@@ -83,20 +83,20 @@ async def main():
     token = token_res.get("access_token")
     
     if token:
-        up_url = requests.get("https://api.dailymotion.com/file/upload", headers={"Authorization": f"Bearer {token}"}).json()['upload_url']
-        m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
-        f_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
-        
-        requests.post("https://api.dailymotion.com/me/videos", headers={"Authorization": f"Bearer {token}"}, data={
+        # ... (نفس خطوات الرفع السابقة)
+        response = requests.post("https://api.dailymotion.com/me/videos", headers={"Authorization": f"Bearer {token}"}, data={
             "url": f_url,
             "title": ai_data['title'][:100],
             "description": ai_data['script'],
             "published": "true",
-            "channel": "news",
-            "tags": "news,trending,viral"
-        })
+            "channel": "news"
+        }).json()
+        
+        video_id = response.get("id")
+        print(f"✅ SUCCESS! Video ID: {video_id}")
+        print(f"🔗 Video Link: https://www.dailymotion.com/video/{video_id}")
+        
         with open("last_post.txt", "a") as f: f.write(target.title + "\n")
-        print("✅ Process Completed Successfully!")
     else:
         print("❌ Dailymotion Auth Failed.")
 
