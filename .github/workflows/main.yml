@@ -20,7 +20,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests moviepy gtts imageio[ffmpeg]
+          pip install requests "moviepy<2.0" gtts imageio[ffmpeg]
+
 
       - name: Run script
         env:
