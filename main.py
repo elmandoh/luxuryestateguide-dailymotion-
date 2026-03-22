@@ -64,24 +64,13 @@ def upload_to_dailymotion(video_file, token):
     url = "https://api.dailymotion.com/me/videos"
     headers = {"Authorization": f"Bearer {token}"}
     files = {"file": open(video_file, "rb")}
-    data = {"title": "فيديو تريند", "published": "true"}
+    data = {
+        "title": "فيديو تريند",
+        "description": "فيديو مولد أوتوماتيكياً باستخدام Groq وPexels",
+        "tags": "trend, ai, auto",
+        "channel": "news",   # لازم تختار قناة مناسبة زي news أو tech
+        "published": "true",
+        "private": "false"
+    }
     response = requests.post(url, headers=headers, files=files, data=data)
     return response.json()
-
-if __name__ == "__main__":
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    pexels_api_key = os.getenv("PEXELS_API")
-    dm_api_key = os.getenv("DM_API_KEY")
-    dm_api_secret = os.getenv("DM_API_SECRET")
-    dm_user = os.getenv("DM_USER")
-    dm_pass = os.getenv("DM_PASS")
-
-    topic = get_trending_topic()
-    script = generate_script(topic, groq_api_key)
-    audio_file = text_to_speech(script)
-    video_file = get_video_from_pexels(topic, pexels_api_key)
-    final_video = merge_audio_video(video_file, audio_file)
-
-    token = get_dm_token(dm_api_key, dm_api_secret, dm_user, dm_pass)
-    result = upload_to_dailymotion(final_video, token)
-    print("Uploaded:", result)
