@@ -91,7 +91,7 @@ def upload_to_dailymotion(video_file, token, topic):
     headers = {"Authorization": f"Bearer {token}"}
     files = {"file": open(video_file, "rb")}
     data = {
-        "title": f"فيديو تريند عن {topic}",
+        "title": f"فيديو تريند: {topic}",
         "description": f"فيديو مولد أوتوماتيكياً عن {topic} باستخدام Groq وPexels",
         "tags": f"trend,{topic}",
         "channel": channel,
