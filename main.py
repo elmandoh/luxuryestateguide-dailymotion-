@@ -4,13 +4,14 @@ import time
 from gtts import gTTS
 from moviepy.editor import VideoFileClip, AudioFileClip
 # استيراد متوافق مع moviepy 2.x
+# استيراد متوافق مع moviepy 2.x
 try:
     from moviepy.video.io.VideoFileClip import VideoFileClip
     from moviepy.audio.io.AudioFileClip import AudioFileClip
 except Exception as e:
     print("moviepy import fallback failed:", e)
     raise
-raise
+
 
 
 # جلب تريند من Google Trends TV
