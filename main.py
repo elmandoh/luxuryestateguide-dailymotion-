@@ -32,7 +32,7 @@ async def main():
     # Groq AI
     try:
         completion = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant", # الموديل الجديد البديل
             messages=[
                 {"role": "system", "content": "Return ONLY JSON."},
                 {"role": "user", "content": f"Script for: {target.title}. JSON: script, search, title, tags."}
