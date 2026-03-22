@@ -1,14 +1,14 @@
 name: Auto Video Generator
 
 on:
-  push:
-    branches: [ "main" ]
   schedule:
-    - cron: "0 12 * * *"  # يولد فيديو يوميًا الساعة 12
+    - cron: "0 12 * * *"   # يولد فيديو يوميًا الساعة 12 ظهراً
+  workflow_dispatch:        # تشغيل يدوي لو حبيت
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
