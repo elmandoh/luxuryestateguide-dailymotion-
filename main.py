@@ -1,22 +1,21 @@
 import requests
-import json
-from gtts import gTTS
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import os
+from gtts import gTTS
+from moviepy.editor import VideoFileClip, AudioFileClip
+import json
 
-# 1️⃣ جلب التريندات من Google Trends API (مثال مبسط)
+# 1️⃣ جلب موضوع تريند (مثال ثابت للتجربة)
 def get_trending_topic():
-    # هنا ممكن تستخدم Google Trends API أو أي مصدر تريندات
-    # للتجربة هنرجع كلمة ثابتة
     return "Artificial Intelligence"
 
-# 2️⃣ توليد نص باستخدام Groq
+# 2️⃣ توليد سكريبت باستخدام Groq
 def generate_script(topic, groq_api_key):
     headers = {"Authorization": f"Bearer {groq_api_key}"}
     payload = {"prompt": f"اكتب سكريبت قصير عن {topic}"}
-    # مثال مبسط، لازم تعدل حسب API الحقيقي
     response = requests.post("https://api.groq.com/v1/chat", headers=headers, json=payload)
-    return response.json().get("text", f"هذا فيديو عن {topic}")
+    if response.status_code == 200:
+        return response.json().get("text", f"هذا فيديو عن {topic}")
+    return f"هذا فيديو عن {topic}"
 
 # 3️⃣ تحويل النص إلى صوت
 def text_to_speech(text, filename="voice.mp3"):
@@ -24,7 +23,7 @@ def text_to_speech(text, filename="voice.mp3"):
     tts.save(filename)
     return filename
 
-# 4️⃣ جلب فيديو من Pexels API
+# 4️⃣ جلب فيديو من Pexels
 def get_video_from_pexels(query, pexels_api_key):
     headers = {"Authorization": pexels_api_key}
     url = f"https://api.pexels.com/videos/search?query={query}&per_page=1"
@@ -46,10 +45,24 @@ def merge_audio_video(video_file, audio_file, output_file="final.mp4"):
     final.write_videofile(output_file, codec="libx264", audio_codec="aac")
     return output_file
 
-# 6️⃣ رفع الفيديو على Dailymotion
-def upload_to_dailymotion(video_file, access_token):
+# 6️⃣ الحصول على Access Token من Dailymotion
+def get_dm_token(api_key, api_secret, user, password):
+    url = "https://api.dailymotion.com/oauth/token"
+    data = {
+        "grant_type": "password",
+        "client_id": api_key,
+        "client_secret": api_secret,
+        "username": user,
+        "password": password,
+        "scope": "manage_videos"
+    }
+    response = requests.post(url, data=data)
+    return response.json().get("access_token")
+
+# 7️⃣ رفع الفيديو على Dailymotion
+def upload_to_dailymotion(video_file, token):
     url = "https://api.dailymotion.com/me/videos"
-    headers = {"Authorization": f"Bearer {access_token}"}
+    headers = {"Authorization": f"Bearer {token}"}
     files = {"file": open(video_file, "rb")}
     data = {"title": "فيديو تريند", "published": "true"}
     response = requests.post(url, headers=headers, files=files, data=data)
@@ -57,13 +70,18 @@ def upload_to_dailymotion(video_file, access_token):
 
 if __name__ == "__main__":
     groq_api_key = os.getenv("GROQ_API_KEY")
-    pexels_api_key = os.getenv("PEXELS_API_KEY")
-    dailymotion_token = os.getenv("DAILYMOTION_ACCESS_TOKEN")
+    pexels_api_key = os.getenv("PEXELS_API")
+    dm_api_key = os.getenv("DM_API_KEY")
+    dm_api_secret = os.getenv("DM_API_SECRET")
+    dm_user = os.getenv("DM_USER")
+    dm_pass = os.getenv("DM_PASS")
 
     topic = get_trending_topic()
     script = generate_script(topic, groq_api_key)
     audio_file = text_to_speech(script)
     video_file = get_video_from_pexels(topic, pexels_api_key)
     final_video = merge_audio_video(video_file, audio_file)
-    result = upload_to_dailymotion(final_video, dailymotion_token)
+
+    token = get_dm_token(dm_api_key, dm_api_secret, dm_user, dm_pass)
+    result = upload_to_dailymotion(final_video, token)
     print("Uploaded:", result)
