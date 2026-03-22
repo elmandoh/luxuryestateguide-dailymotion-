@@ -1,8 +1,8 @@
-import feedparser, asyncio, edge_tts, requests, os, json, random
+import feedparser, asyncio, edge_tts, requests, os, json, re
 from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
 from requests_toolbelt import MultipartEncoder
 
-# --- الإعدادات وجلب المفاتيح من البيئة ---
+# --- جلب المفاتيح من GitHub Secrets ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 PEXELS_API = os.getenv("PEXELS_API")
 DM_KEY = os.getenv("DM_API_KEY")
@@ -10,8 +10,8 @@ DM_SECRET = os.getenv("DM_API_SECRET")
 DM_USER = os.getenv("DM_USER")
 DM_PASS = os.getenv("DM_PASS")
 
-# رابط تريندات جوجل (Global - US) للحصول على أعلى بحث عالمي
-TRENDS_RSS = "https://trends.google.com/trends/trendingsearches/daily/rss?geo=US"
+# رابط أخبار جوجل (World News) لضمان الاستقرار والتريندات العالمية
+NEWS_RSS = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
 def ask_groq(prompt):
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -25,114 +25,116 @@ def ask_groq(prompt):
     return response.json()['choices'][0]['message']['content']
 
 async def main():
-    print("🔥 STEP 1: Fetching Google Trends...")
-    
-    # استخدام Headers لتجنب الحظر
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+    print("🔥 STEP 1: Fetching Trending Stories...")
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124'}
     
     try:
-        response = requests.get(TRENDS_RSS, headers=headers, timeout=15)
-        feed = feedparser.parse(response.content)
+        resp = requests.get(NEWS_RSS, headers=headers, timeout=20)
+        feed = feedparser.parse(resp.content)
     except Exception as e:
         print(f"❌ Connection Error: {e}")
         return
 
     if not feed.entries:
-        print("❌ No trends found. Trying backup Global RSS...")
-        # رابط احتياطي عالمي في حال فشل الأول
-        response = requests.get("https://trends.google.com/trends/trendingsearches/daily/rss?geo=US", headers=headers)
-        feed = feedparser.parse(response.content)
-        if not feed.entries:
-            print("❌ Critical: Google Trends is unreachable.")
-            return
-    
-    # ... باقي الكود كما هو من أول فحص التكرار ...
+        print("❌ No news found.")
+        return
 
-    # --- استخدام Groq لتوليد السكريبت وتفاصيل الفيديو ---
-    print("🧠 STEP 2: Generating Script via Groq AI...")
+    # فحص التكرار من ملف last_post.txt
+    processed = []
+    if os.path.exists("last_post.txt"):
+        with open("last_post.txt", "r") as f: processed = f.read().splitlines()
+
+    target = None
+    for entry in feed.entries[:10]:
+        if entry.title not in processed:
+            target = entry
+            break
+
+    if not target:
+        print("⚠️ No new stories to process.")
+        return
+
+    title_trend = target.title
+    print(f"🌟 Target Story: {title_trend}")
+
+    # --- الخطوة 2: ذكاء Groq لتوليد السكريبت ---
+    print("🧠 STEP 2: Generating Content via Groq...")
     prompt = f"""
-    Create a viral short video script about the trend '{top_trend}'. 
-    The tone should be exciting. 
-    Return ONLY a JSON object with these keys: 
-    "script": "a 30-word engaging script in English",
-    "search_term": "one specific keyword for Pexels videos",
-    "title": "a viral title with emojis",
+    Create a viral short video script for this news: '{title_trend}'.
+    Format the response as JSON with these keys:
+    "script": "Exciting 30-word summary in English",
+    "search_term": "Best 1-word keyword for Pexels videos",
+    "video_title": "Viral title with emojis",
     "tags": "5 viral hashtags"
     """
-    ai_json = json.loads(ask_groq(prompt))
-    print(f"✅ AI Script Generated: {ai_json['script'][:50]}...")
+    
+    ai_data = json.loads(ask_groq(prompt))
+    print(f"✅ AI Script: {ai_data['script'][:50]}...")
 
-    # --- توليد الصوت ---
-    print("🎙️ STEP 3: Generating Voice...")
+    # --- الخطوة 3: تحويل النص لصوت ---
+    print("🎙️ STEP 3: Voice Generation...")
     voice_path = "voice.mp3"
-    communicate = edge_tts.Communicate(ai_json['script'], "en-US-GuyNeural")
-    await communicate.save(voice_path)
+    await edge_tts.Communicate(ai_data['script'], "en-US-GuyNeural").save(voice_path)
     audio = AudioFileClip(voice_path)
     duration = audio.duration
 
-    # --- جلب فيديوهات Pexels ---
-    print(f"📽️ STEP 4: Searching Pexels for: {ai_json['search_term']}")
-    headers = {"Authorization": PEXELS_API}
-    pex_url = f"https://api.pexels.com/videos/search?query={ai_json['search_term']}&per_page=5&orientation=portrait"
-    pex_res = requests.get(pex_url, headers=headers).json()
+    # --- الخطوة 4: جلب فيديوهات Pexels ---
+    print(f"📽️ STEP 4: Fetching Videos for: {ai_data['search_term']}")
+    headers_pex = {"Authorization": PEXELS_API}
+    pex_url = f"https://api.pexels.com/videos/search?query={ai_data['search_term']}&per_page=5&orientation=portrait"
+    vids = requests.get(pex_url, headers=headers_pex).json().get('videos', [])
     
     clips = []
-    current_d = 0
-    for i, v in enumerate(pex_res.get('videos', [])):
-        v_url = v['video_files'][0]['link']
-        temp_name = f"v_{i}.mp4"
-        with open(temp_name, "wb") as f: f.write(requests.get(v_url).content)
-        clip = VideoFileClip(temp_name).resized(height=1920).without_audio()
-        clips.append(clip)
-        current_d += clip.duration
-        if current_d >= duration: break
+    curr_d = 0
+    for i, v in enumerate(vids):
+        v_link = v['video_files'][0]['link']
+        fname = f"v_{i}.mp4"
+        with open(fname, "wb") as f: f.write(requests.get(v_link).content)
+        c = VideoFileClip(fname).resized(height=1920).without_audio()
+        clips.append(c)
+        curr_d += c.duration
+        if curr_d >= duration: break
 
-    # --- المونتاج ---
-    print("🎬 STEP 5: Editing Video...")
+    # --- الخطوة 5: المونتاج النهائي ---
+    print("🎬 STEP 5: Rendering Video...")
     final_bg = concatenate_videoclips(clips)
     if final_bg.duration < duration:
-        final_bg = concatenate_videoclips([final_bg] * (int(duration/final_bg.duration) + 1))
+        final_bg = concatenate_videoclips([final_bg] * (int(duration/final_bg.duration)+1))
     
-    final_video = final_bg.subclipped(0, duration).with_audio(audio)
-    final_video.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
+    final_v = final_bg.subclipped(0, duration).with_audio(audio)
+    final_v.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
 
-    # --- الرفع لـ Dailymotion ---
-    print(f"🚀 STEP 6: Uploading to Dailymotion: {ai_json['title']}")
-    auth_data = {
-        "grant_type": "password", "client_id": DM_KEY, 
-        "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"
-    }
-    r = requests.post("https://api.dailymotion.com/oauth/token", data=auth_data)
-    if r.status_code == 200:
-        token = r.json().get("access_token")
-        headers = {"Authorization": f"Bearer {token}"}
+    # --- الخطوة 6: الرفع لـ Dailymotion ---
+    print("🚀 STEP 6: Uploading to Dailymotion...")
+    auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
+    r_auth = requests.post("https://api.dailymotion.com/oauth/token", data=auth)
+    
+    if r_auth.status_code == 200:
+        token = r_auth.json().get("access_token")
+        h_dm = {"Authorization": f"Bearer {token}"}
         
         # طلب رابط الرفع
-        up_url_res = requests.get("https://api.dailymotion.com/file/upload", headers=headers).json()
-        up_url = up_url_res['upload_url']
+        up_info = requests.get("https://api.dailymotion.com/file/upload", headers=h_dm).json()
         
-        # رفع الملف الحقيقي
+        # الرفع الفعلي
         m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
-        file_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
+        f_url = requests.post(up_info['upload_url'], data=m, headers={'Content-Type': m.content_type}).json()['url']
         
-        # نشر الفيديو بالبيانات الجذابة من AI
-        requests.post("https://api.dailymotion.com/me/videos", headers=headers, data={
-            "url": file_url,
-            "title": ai_json['title'][:100],
-            "description": f"{ai_json['script']}\n\n#trending #news {ai_json['tags']}",
-            "tags": ai_json['tags'].replace("#", ""),
+        # النشر النهائي
+        requests.post("https://api.dailymotion.com/me/videos", headers=h_dm, data={
+            "url": f_url,
+            "title": ai_data['video_title'][:100],
+            "description": f"{ai_data['script']}\n\n#news #trending {ai_data['tags']}",
+            "tags": ai_data['tags'].replace("#", ""),
             "published": "true",
             "channel": "news"
         })
         
-        # تسجيل التريند كـ "تمت معالجته"
-        with open("last_post.txt", "a") as f:
-            f.write(top_trend + "\n")
-        print("✅ SUCCESS: Video is live!")
+        # تحديث ملف التكرار
+        with open("last_post.txt", "a") as f: f.write(title_trend + "\n")
+        print("✅ SUCCESS: Trending video is live!")
     else:
-        print(f"❌ Upload failed. Auth response: {r.text}")
+        print(f"❌ DM Auth Error: {r_auth.text}")
 
 if __name__ == "__main__":
     asyncio.run(main())
