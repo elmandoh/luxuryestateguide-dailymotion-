@@ -1,0 +1,33 @@
+name: Auto Video Generator
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *' # تشغيل يومي الساعة 09:00 UTC (عدل حسب رغبتك)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests gtts moviepy imageio[ffmpeg]
+
+      - name: Run script
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API: ${{ secrets.PEXELS_API }}
+          DM_API_KEY: ${{ secrets.DM_API_KEY }}
+          DM_API_SECRET: ${{ secrets.DM_API_SECRET }}
+          DM_USER: ${{ secrets.DM_USER }}
+          DM_PASS: ${{ secrets.DM_PASS }}
+        run: |
+          python main.py
