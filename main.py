@@ -50,7 +50,17 @@ async def main():
     # STEP 3: Voice Generation
     print("🎙️ STEP 3: Generating Voice...")
     v_path = "voice.mp3"
-    await edge_tts.Communicate(ai_data['script'], "en-US-GuyNeural").save(v_path)
+     script_text = ai_data.get('script')
+
+print("Script content:", script_text, type(script_text))  # للتأكد من القيمة
+
+if script_text is None:
+    script_text = ""  # نص افتراضي لو مفيش قيمة
+elif not isinstance(script_text, str):
+    script_text = str(script_text)  # تحويل القيمة لنص
+
+await edge_tts.Communicate(script_text, "en-US-GuyNeural").save(v_path)
+
     audio = AudioFileClip(v_path)
 
     # STEP 4: Finding Videos from Pexels
