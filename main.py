@@ -39,7 +39,7 @@ async def main():
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "Return ONLY JSON."},
-                {"role": "user", "content": f"Create viral video data for: {target.title}. JSON keys: script (30 words), search (1 keyword), title, tags."}
+                {"role": "user", "content": f"Create viral video data for: {target.title}. JSON keys: script (90 words), search (4 keyword), title, tags."}
             ],
             response_format={"type": "json_object"}
         )
