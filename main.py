@@ -34,20 +34,43 @@ async def main():
 
     print(f"🌟 Target Story: {target.title}")
 
-    # STEP 2: Groq AI - توليد نص طويل (400 كلمة) للربح من الإعلانات
+# --- تحديث الخطوة 2 و 3 لمنع حدوث هذا الخطأ ---
+
+    # STEP 2: Groq AI
     print("🤖 STEP 2: Generating 400-word Script...")
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Return ONLY JSON."},
-                {"role": "user", "content": f"Write a detailed viral news script (exactly around 400 words) for: {target.title}. The script should have an intro, deep details, and a conclusion. JSON keys: script, search, title, tags."}
+                {"role": "system", "content": "Return ONLY JSON. Ensure the 'script' key contains the text."},
+                {"role": "user", "content": f"Write a long viral news script (around 400 words) for: {target.title}. JSON keys: script, search, title, tags."}
             ],
             response_format={"type": "json_object"}
         )
-        ai_data = json.loads(completion.choices[0].message.content)
+        response_content = completion.choices[0].message.content
+        ai_data = json.loads(response_content)
+        
+        # التأكد من أن النص موجود فعلاً وليس فارغاً
+        if not ai_data.get('script'):
+            raise ValueError("Script is empty in AI response")
+            
     except Exception as e:
-        print(f"❌ Groq Error: {e}"); return
+        print(f"❌ Groq Error or Invalid JSON: {e}")
+        print(f"Full Response: {response_content}") # لتعرف ماذا أرسل الذكاء الاصطناعي بالضبط
+        return
+
+    # STEP 3: Voice Generation
+    print("🎙️ STEP 3: Generating Voice...")
+    v_path = "voice.mp3"
+    script_text = str(ai_data['script']) # التأكد أن القيمة نصية
+    
+    try:
+        communicate = edge_tts.Communicate(script_text, "en-US-GuyNeural")
+        await communicate.save(v_path)
+        audio = AudioFileClip(v_path)
+    except Exception as e:
+        print(f"❌ TTS Error: {e}")
+        return
 
     # STEP 3: توليد التعليق الصوتي
     print("🎙️ STEP 3: Generating Long Voiceover...")
