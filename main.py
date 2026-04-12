@@ -38,13 +38,12 @@ async def main():
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Return ONLY JSON object."},
-                {"role": "user", "content": f"""Create viral video data for: {target.title}. 
-                1. script: Detailed report (at least 500 words) for a 4-minute video. 
-                2. search_queries: List of 10 diverse keywords for Pexels.
-                3. thumb_text: Short catchy 'Clickbait' text (4-5 words max).
-                4. title: SEO optimized title.
-                5. tags: High CPM tags (finance, tech, global news)."""}
+            {"role": "user", "content": f"""Create viral video data for: {target.title}. 
+            1. script: Detailed report (at least 500 words). Focus on the financial impact, market reactions, and economic consequences of this news.
+            2. search_queries: List of 10 keywords for Pexels.
+            3. thumb_text: Extreme clickbait text (4 words max).
+            4. title: Create a SHOCKING 'Hook' title. Use power words like 'Shocking', 'Finally Revealed', 'Market Crash', or 'The Money Secret'.
+            5. tags: Investing, Passive Income, Crypto News, Market Analysis, Wealth."""}
             ],
             response_format={"type": "json_object"}
         )
@@ -136,15 +135,22 @@ async def main():
         m = MultipartEncoder(fields={'file': ('final.mp4', open('final.mp4', 'rb'), 'video/mp4')})
         f_url = requests.post(up_url, data=m, headers={'Content-Type': m.content_type}).json()['url']
         
+# تجهيز الوصف وتنظيفه من أي JSON
+        raw_description = ai_data.get('script', '')
+        # إضافة الهاشتاجات الإماراتية والنيوز في نهاية الوصف
+        uae_hashtags = "\n\n#UAE #Dubai #AbuDhabi #News #Trending #Emirates #WorldNews"
+        full_description = f"{raw_description}{uae_hashtags}"
+
+        # إنشاء الفيديو في القناة مع البيانات المصلحة
         create_v = requests.post("https://api.dailymotion.com/me/videos", 
                                  headers={"Authorization": f"Bearer {token}"}, 
                                  data={
                                      "url": f_url,
-                                     "title": ai_data['title'],
-                                     "description": clean_script[:1000],
+                                     "title": ai_data.get('title', target.title)[:100],
+                                     "description": full_description[:1000], # النص النظيف مع الهاشتاجات
                                      "published": "true",
                                      "channel": "news",
-                                     "tags": ",".join(ai_data.get('tags', [])),
+                                     "tags": ",".join(ai_data.get('tags', [])) + ",UAE,Dubai,Finance,News,Trending"
                                      "is_created_for_kids": "false"
                                  }).json()
         
