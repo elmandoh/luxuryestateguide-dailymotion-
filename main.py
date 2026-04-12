@@ -147,10 +147,10 @@ async def main():
                                  data={
                                      "url": f_url,
                                      "title": ai_data.get('title', target.title)[:100],
-                                     "description": full_description[:1000], # النص النظيف مع الهاشتاجات
+                                     "description": full_description[:1000],
                                      "published": "true",
                                      "channel": "news",
-                                     "tags": ",".join(ai_data.get('tags', [])) + ",UAE,Dubai,Finance,News,Trending"
+                                     "tags": ",".join(ai_data.get('tags', [])) + ",UAE,Dubai,Finance,News,Trending", # الفاصلة هنا هي الحل
                                      "is_created_for_kids": "false"
                                  }).json()
         
