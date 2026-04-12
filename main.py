@@ -38,12 +38,13 @@ async def main():
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-            {"role": "system", "content": "Return ONLY a valid JSON object. You must include the word json in your output."}
-            1. script: Detailed report (at least 500 words). Focus on the financial impact, market reactions, and economic consequences of this news.
-            2. search_queries: List of 10 keywords for Pexels.
-            3. thumb_text: Extreme clickbait text (4 words max).
-            4. title: Create a SHOCKING 'Hook' title. Use power words like 'Shocking', 'Finally Revealed', 'Market Crash', or 'The Money Secret'.
-            5. tags: Investing, Passive Income, Crypto News, Market Analysis, Wealth."""}
+                {"role": "system", "content": "Return ONLY a valid JSON object. You must include the word json in your output."},
+                {"role": "user", "content": f"""Create viral video data for: {target.title}. 
+                1. script: Detailed report (at least 500 words). Focus on the financial impact.
+                2. search_queries: List of 10 keywords for Pexels.
+                3. thumb_text: Extreme clickbait text (4 words max).
+                4. title: Create a SHOCKING 'Hook' title.
+                5. tags: Investing, Passive Income, Crypto News, Market Analysis, Wealth."""}
             ],
             response_format={"type": "json_object"}
         )
