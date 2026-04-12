@@ -11,7 +11,7 @@ DM_SECRET = os.getenv("DM_API_SECRET")
 DM_USER = os.getenv("DM_USER")
 DM_PASS = os.getenv("DM_PASS")
 
-# مصدر الأخبار العالمية (لضمان CPM مرتفع)
+# مصدر الأخبار العالمية لضمان عائد مادي مرتفع
 NEWS_RSS = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
 
 async def main():
@@ -22,7 +22,7 @@ async def main():
     
     if not feed.entries: return
 
-    # فحص التكرار
+    # فحص التكرار لمنع رفع نفس الفيديو مرتين
     processed = []
     if os.path.exists("last_post.txt"):
         with open("last_post.txt", "r") as f: processed = f.read().splitlines()
@@ -33,7 +33,7 @@ async def main():
 
     print(f"🌟 Target Story: {target.title}")
 
-    # STEP 2: Groq AI - توليد نص طويل وبيانات الفيديو
+    # STEP 2: Groq AI - توليد بيانات الفيديو (سكريبت طويل + صورة مصغرة)
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -41,7 +41,7 @@ async def main():
                 {"role": "system", "content": "Return ONLY JSON object."},
                 {"role": "user", "content": f"""Create viral video data for: {target.title}. 
                 1. script: Detailed report (at least 500 words) for a 4-minute video. 
-                2. search_queries: List of 10 keywords for Pexels.
+                2. search_queries: List of 10 diverse keywords for Pexels.
                 3. thumb_text: Short catchy 'Clickbait' text (4-5 words max).
                 4. title: SEO optimized title.
                 5. tags: High CPM tags (finance, tech, global news)."""}
@@ -52,39 +52,51 @@ async def main():
     except Exception as e:
         print(f"❌ Groq Error: {e}"); return
 
-    # STEP 3: Voice Generation (Long Version)
+    # --- تصحيح الخطأ (TypeError Fix) ---
+    # التأكد أن السكريبت نص صريح وليس قائمة
+    raw_script = ai_data.get('script', '')
+    if isinstance(raw_script, list):
+        clean_script = " ".join(map(str, raw_script))
+    else:
+        clean_script = str(raw_script)
+
+    # STEP 3: Voice Generation
     print("🎙️ STEP 3: Generating Long Voiceover...")
     v_path = "voice.mp3"
-    await edge_tts.Communicate(ai_data['script'], "en-US-GuyNeural").save(v_path)
+    if clean_script.strip():
+        await edge_tts.Communicate(clean_script, "en-US-GuyNeural").save(v_path)
+    else:
+        print("❌ Script is empty after cleaning."); return
+    
     audio = AudioFileClip(v_path)
 
-    # STEP 4: Finding 10+ Videos from Pexels
+    # STEP 4: Finding Videos from Pexels
     print(f"📽️ STEP 4: Gathering Visuals for {len(ai_data['search_queries'])} queries...")
     h_pex = {"Authorization": PEXELS_API}
     clips = []
     
     for query in ai_data['search_queries']:
         v_url_api = f"https://api.pexels.com/videos/search?query={query}&per_page=2&orientation=landscape"
-        v_res = requests.get(v_url_api, headers=h_pex).json()
-        
-        for v in v_res.get('videos', []):
-            v_url = v['video_files'][0]['link']
-            v_name = f"temp_{query[:5]}.mp4"
-            with open(v_name, "wb") as f: f.write(requests.get(v_url).content)
-            clip = VideoFileClip(v_name).resized(width=1920).without_audio()
-            clips.append(clip)
-            if len(clips) >= 15: break # كفاية 15 كليب لملء الوقت
+        try:
+            v_res = requests.get(v_url_api, headers=h_pex).json()
+            for v in v_res.get('videos', []):
+                v_url = v['video_files'][0]['link']
+                v_name = f"temp_{len(clips)}.mp4"
+                with open(v_name, "wb") as f: f.write(requests.get(v_url).content)
+                clip = VideoFileClip(v_name).resized(width=1920).without_audio()
+                clips.append(clip)
+                if len(clips) >= 15: break 
+        except: continue
 
     if not clips:
         print("❌ No videos found on Pexels."); return
 
-    # STEP 5: Creating the Thumbnail Frame (The Hack)
+    # STEP 5: Thumbnail Frame Hack (لحل مشكلة صورة دايلي موشن)
     print("🖼️ STEP 5: Creating Integrated Thumbnail Frame...")
-    # خلفية ملونة مع نص كبير في أول ثانية ليختارها دايلي موشن
     thumb_bg = ColorClip(size=(1920, 1080), color=(20, 20, 20)).with_duration(1.5)
     thumb_txt = TextClip(
-        text=ai_data['thumb_text'].upper(),
-        font_size=150,
+        text=str(ai_data.get('thumb_text', 'BREAKING NEWS')).upper(),
+        font_size=130,
         color='yellow',
         method='caption',
         size=(1700, None)
@@ -92,21 +104,18 @@ async def main():
     
     thumbnail_clip = CompositeVideoClip([thumb_bg, thumb_txt])
 
-    # STEP 6: Rendering Final Video (Long Form)
-    print("🎬 STEP 6: Rendering Final 3+ Minute Video...")
+    # STEP 6: Rendering Final Video
+    print("🎬 STEP 6: Rendering Final Long-Form Video...")
     video_content = concatenate_videoclips(clips, method="compose")
     
-    # تكرار الفيديو إذا كان الصوت أطول
     while video_content.duration < audio.duration:
         video_content = concatenate_videoclips([video_content, video_content])
     
     main_video = video_content.subclipped(0, audio.duration).with_audio(audio)
-    
-    # دمج الصورة المصغرة في البداية
     final_v = concatenate_videoclips([thumbnail_clip, main_video])
     final_v.write_videofile("final.mp4", fps=24, codec="libx264", audio_codec="aac")
 
-    # STEP 7: Publishing to Dailymotion
+    # STEP 7: Upload & Cleanup
     print("🚀 STEP 7: Publishing to Dailymotion...")
     auth = {
         "grant_type": "password",
@@ -117,10 +126,10 @@ async def main():
         "scope": "manage_videos"
     }
     
-    token_data = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
+    token_resp = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
     
-    if "access_token" in token_data:
-        token = token_data["access_token"]
+    if "access_token" in token_resp:
+        token = token_resp["access_token"]
         up_url = requests.get("https://api.dailymotion.com/file/upload", 
                                headers={"Authorization": f"Bearer {token}"}).json()['upload_url']
         
@@ -132,18 +141,24 @@ async def main():
                                  data={
                                      "url": f_url,
                                      "title": ai_data['title'],
-                                     "description": ai_data['script'][:1000],
+                                     "description": clean_script[:1000],
                                      "published": "true",
                                      "channel": "news",
-                                     "tags": ",".join(ai_data['tags']),
+                                     "tags": ",".join(ai_data.get('tags', [])),
                                      "is_created_for_kids": "false"
                                  }).json()
         
         if "id" in create_v:
             print(f"✅ SUCCESS! Video: https://www.dailymotion.com/video/{create_v['id']}")
             with open("last_post.txt", "a") as f: f.write(target.title + "\n")
+            
+            # تنظيف الملفات لتوفير المساحة في GitHub Actions
+            os.remove("final.mp4")
+            os.remove("voice.mp3")
+            for f in os.listdir():
+                if f.startswith("temp_"): os.remove(f)
     else:
-        print(f"❌ Auth Failed: {token_data}")
+        print(f"❌ Auth Failed: {token_resp}")
 
 if __name__ == "__main__":
     asyncio.run(main())
