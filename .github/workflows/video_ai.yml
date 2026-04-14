@@ -26,7 +26,7 @@ jobs:
 
     - name: Install Python Packages
       run: |
-        pip install requests groq gTTS "moviepy<2.0.0"
+        pip install requests groq gTTS "moviepy==1.0.3"
 
     - name: Run Factory
       env:
