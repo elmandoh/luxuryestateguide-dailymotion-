@@ -54,29 +54,31 @@ def run_process():
         token = token_res.get("access_token")
         
         headers = {"Authorization": f"Bearer {token}"}
-        upload_url_res = requests.get("https://api.dailymotion.com/file/upload", headers=headers).json()
-        upload_url = upload_url_res.get("upload_url")
         
+        # طلب رابط الرفع
+        url_res = requests.get("https://api.dailymotion.com/file/upload", headers=headers).json()
+        upload_url = url_res.get("upload_url")
+        
+        # رفع الملف
         with open("output_video.mp4", "rb") as f:
             file_res = requests.post(upload_url, files={"file": f}).json()
             video_url = file_res.get("url")
         
-# تعديل الجزء الأخير في دالة الرفع
+        # النشر (تعديل: شلنا الـ channel عشان نتجنب الخطأ)
         publish_data = {
-            "url": video_url, 
-            "title": title[:250], # التأكد من طول العنوان
-            "description": script[:900], 
-            "published": "true", 
-            "channel": "news", # تأكد من أن هذا التصنيف متاح
+            "url": video_url,
+            "title": title[:250],
+            "description": script[:900],
+            "published": "true",
             "is_created_for_kids": "false"
         }
         
-        publish_res = requests.post("https://api.dailymotion.com/me/videos", data=publish_data, headers=headers).json()
+        final_res = requests.post("https://api.dailymotion.com/me/videos", data=publish_data, headers=headers).json()
         
-        if 'id' in publish_res:
-            print(f"🚀 تم الرفع والنشر بنجاح! ID: {publish_res.get('id')}")
+        if 'id' in final_res:
+            print(f"🚀 تم الرفع والنشر بنجاح! ID الجديد هو: {final_res.get('id')}")
         else:
-            print(f"❌ فشل النشر. الرد من ديلى موشن: {publish_res}")
+            print(f"❌ فشل النشر. الرد من السيرفر: {final_res}")
 
     except Exception as e:
         print(f"❌ حدث خطأ: {e}")
