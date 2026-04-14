@@ -1,0 +1,24 @@
+name: Update Dailymotion RSS
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # كل 6 ساعات
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - run: pip install requests
+    - run: python trend_manager.py
+    - name: Commit changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add dailymotion_feed.xml
+        git commit -m "Update RSS Feed" || exit 0
+        git push
