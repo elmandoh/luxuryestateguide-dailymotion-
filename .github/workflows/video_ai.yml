@@ -1,23 +1,33 @@
 name: AI Video Production
 
 on:
-  workflow_dispatch: # للتشغيل اليدوي الآن
+  workflow_dispatch:
 
 jobs:
-  build:
+  create-video:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
-    - name: Install System Dependencies
+        cache: 'pip' # تفعيل الكاش للمكتبات تلقائياً
+
+    # بدل التحميل الطويل، بنستخدم نسخة جاهزة وسريعة
+    - name: Ensure FFmpeg is present
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        if ! command -v ffmpeg &> /dev/null; then
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+        else
+          echo "FFmpeg is already installed"
+        fi
+
     - name: Install Python Packages
-      run: pip install requests groq gTTS "moviepy<2.0.0"
+      run: |
+        pip install requests groq gTTS "moviepy<2.0.0"
+
     - name: Run Factory
       env:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
