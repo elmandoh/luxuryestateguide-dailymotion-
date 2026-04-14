@@ -3,8 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 from groq import Groq
 from gtts import gTTS
-import moviepy.editor as mp
-
+import moviepy as mp  # التغيير هنا
 # إعداد المفاتيح من بيئة جيت هاب
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 DM_KEY = os.getenv("DAILYMOTION_API_KEY")
