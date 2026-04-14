@@ -1,0 +1,36 @@
+name: Dailymotion Trends Scraper
+
+on:
+  schedule:
+    # بيشتغل أوتوماتيك كل 6 ساعات
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # بيسمح لك تشغله يدوي بضغطة زرار لو حبيت
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Run Scraper
+      run: python main.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add trends_data.json
+        git commit -m "Update Dailymotion trends data" || exit 0
+        git push
