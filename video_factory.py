@@ -61,9 +61,22 @@ def run_process():
             file_res = requests.post(upload_url, files={"file": f}).json()
             video_url = file_res.get("url")
         
-        publish_data = {"url": video_url, "title": title, "description": script, "published": "true", "channel": "news"}
-        final_res = requests.post("https://api.dailymotion.com/me/videos", data=publish_data, headers=headers).json()
-        print(f"🚀 تم الرفع بنجاح! ID: {final_res.get('id')}")
+# تعديل الجزء الأخير في دالة الرفع
+        publish_data = {
+            "url": video_url, 
+            "title": title[:250], # التأكد من طول العنوان
+            "description": script[:900], 
+            "published": "true", 
+            "channel": "news", # تأكد من أن هذا التصنيف متاح
+            "is_created_for_kids": "false"
+        }
+        
+        publish_res = requests.post("https://api.dailymotion.com/me/videos", data=publish_data, headers=headers).json()
+        
+        if 'id' in publish_res:
+            print(f"🚀 تم الرفع والنشر بنجاح! ID: {publish_res.get('id')}")
+        else:
+            print(f"❌ فشل النشر. الرد من ديلى موشن: {publish_res}")
 
     except Exception as e:
         print(f"❌ حدث خطأ: {e}")
