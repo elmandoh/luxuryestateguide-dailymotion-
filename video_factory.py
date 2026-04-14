@@ -3,8 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 from groq import Groq
 from gtts import gTTS
-import moviepy as mp  # التغيير هنا
-# إعداد المفاتيح من بيئة جيت هاب
+from moviepy.editor import ColorClip, AudioFileClip # استدعاء مباشر للأدواتإعداد المفاتيح من بيئة جيت هاب
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 DM_KEY = os.getenv("DAILYMOTION_API_KEY")
 DM_SECRET = os.getenv("DAILYMOTION_API_SECRET")
@@ -35,10 +34,9 @@ def run_process():
         # 3. تحويل النص لصوت وصناعة فيديو بسيط
         tts = gTTS(text=script, lang='ar')
         tts.save("audio.mp3")
-        audio = mp.AudioFileClip("audio.mp3")
-        
+        audio = AudioFileClip("audio.mp3")        
         # إنشاء كليب أسود مدته نفس مدة الصوت
-        video = mp.ColorClip(size=(720, 1280), color=(0, 0, 0)).set_duration(audio.duration)
+        video = ColorClip(size=(720, 1280), color=(0, 0, 0)).set_duration(audio.duration) 
         video = video.set_audio(audio)
         video.write_videofile("output_video.mp4", fps=24, codec="libx264")
         print("🎬 تم إنتاج الفيديو بنجاح")
