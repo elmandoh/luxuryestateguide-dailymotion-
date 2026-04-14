@@ -1,0 +1,39 @@
+name: Dailymotion Trends to Reels AI
+
+on:
+  schedule:
+    # سيتم التشغيل كل 12 ساعة (تقدر تغيرها لـ '0 */6 * * *' كل 6 ساعات)
+    - cron: '0 */12 * * *'
+  workflow_dispatch: # زر التشغيل اليدوي من صفحة Actions
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests google-generativeai
+
+    - name: Run Automation Manager
+      env:
+        # هنا بنعرف المفتاح الخاص بـ Gemini عشان السكريبت يقدر يستخدمه
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python trend_manager.py
+
+    - name: Save Results to Repository
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add trends_raw.json reels_scripts.json
+        git commit -m "Update: New Trends and AI Scripts [$(date)]" || exit 0
+        git push
