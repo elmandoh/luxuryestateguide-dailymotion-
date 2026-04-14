@@ -1,0 +1,24 @@
+name: Video Creator & Uploader
+
+on:
+  workflow_run:
+    workflows: ["Update Dailymotion RSS"] # هيشتغل أول ما أكشن الـ RSS يخلص بنجاح
+    types: [completed]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - name: Install dependencies
+      run: |
+        pip install requests groq
+    - name: Run Creator
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        # هتحتاج تضيف الـ API Keys الخاصة بديلى موشن هنا للرفع
+      run: python video_creator.py
