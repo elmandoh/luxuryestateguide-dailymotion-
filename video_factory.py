@@ -24,8 +24,11 @@ def run_process():
         # 2. توليد سكريبت عبر Groq
         client = Groq(api_key=GROQ_KEY)
         prompt = f"اكتب سكريبت سريع لمقطع Reel عن موضوع: {title}. اجعل البداية قوية."
-        chat = client.chat.completions.create(model="mixtral-8x7b-32768", messages=[{"role": "user", "content": prompt}])
-        script = chat.choices[0].message.content
+# التعديل هنا لاسم موديل حديث ومدعوم
+        chat = client.chat.completions.create(
+            model="llama-3.3-70b-versatile", 
+            messages=[{"role": "user", "content": prompt}]
+        )        script = chat.choices[0].message.content
         print("🤖 تم توليد السكريبت بواسطة Groq")
 
         # 3. تحويل النص لصوت وصناعة فيديو بسيط
