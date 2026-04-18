@@ -15,28 +15,30 @@ DM_PASS = os.getenv("DM_PASS")
 NEWS_RSS = "https://www.ign.com/rss/articles/feed.xml"
 
 async def main():
-    print("🚀 STEP 1: Fetching Gaming Lore Stories...")
+    print("🚀 STEP 1: Fetching Gaming Stories...")
     headers = {'User-Agent': 'Mozilla/5.0'}
     resp = requests.get(NEWS_RSS, headers=headers)
     feed = feedparser.parse(resp.content)
     
-    if not feed.entries: return
+    if not feed.entries: 
+        print("❌ No entries found in RSS."); return
 
-    # سنختار أول خبر متاح فوراً للتجربة (حتى لو مكرر)
+    # أخذ أول خبر متاح فوراً للتجربة وتخطي فحص التكرار مؤقتاً
     target = feed.entries[0]
-    print(f"🌟 Target Story: {target.title}")
+    print(f"🌟 Target Story Found: {target.title}")
 
-    # STEP 2: Groq AI - توليد قصة Lore وتاجات جيمنج
+    # STEP 2: Groq AI
+    print("🤖 STEP 2: Generating Lore Script with Groq...")
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "Return ONLY a valid JSON object. You are a professional Gaming Lore expert."},
                 {"role": "user", "content": f"""Create viral GAMING LORE video data for: {target.title}. 
-                1. script: Write an immersive, mysterious story (at least 600 words) about the history or secrets of this topic.
+                1. script: Write an immersive, mysterious story (at least 600 words).
                 2. search_queries: List of 12 keywords for Pexels visuals.
-                3. thumb_text: LORE: UNTOLD SECRETS.
-                4. title: Create a SHOCKING title like '[Game] 2026: The Ultimate Lore'.
+                3. thumb_text: LORE SECRETS.
+                4. title: Create a SHOCKING title like '[Game] 2026: The Secrets'.
                 5. tags: Gaming, Lore, Secrets, Mystery, 2026."""}
             ],
             response_format={"type": "json_object"}
@@ -45,9 +47,8 @@ async def main():
     except Exception as e:
         print(f"❌ Groq Error: {e}"); return
 
-    raw_script = ai_data.get('script', '')
-    clean_script = " ".join(raw_script) if isinstance(raw_script, list) else str(raw_script)
-
+    clean_script = str(ai_data.get('script', ''))
+    
     # STEP 3: Voice Generation
     print("🎙️ STEP 3: Generating Voiceover...")
     v_path = "voice.mp3"
@@ -55,7 +56,7 @@ async def main():
     audio = AudioFileClip(v_path)
 
     # STEP 4: Gathering Visuals
-    print("📽️ STEP 4: Gathering Visuals...")
+    print("📽️ STEP 4: Gathering Visuals from Pexels...")
     h_pex = {"Authorization": PEXELS_API}
     clips = []
     for query in ai_data['search_queries']:
@@ -71,7 +72,8 @@ async def main():
                 if len(clips) >= 20: break 
         except: continue
 
-    if not clips: return
+    if not clips: 
+        print("❌ No clips found."); return
 
     # STEP 5: Thumbnail Frame
     thumb_bg = ColorClip(size=(1920, 1080), color=(15, 15, 15)).with_duration(1.5)
@@ -79,7 +81,7 @@ async def main():
     thumbnail_clip = CompositeVideoClip([thumb_bg, thumb_txt])
 
     # STEP 6: Rendering
-    print("🎬 STEP 6: Rendering Video...")
+    print("🎬 STEP 6: Rendering Video (This will take a minute)...")
     video_content = concatenate_videoclips(clips, method="compose")
     while video_content.duration < audio.duration:
         video_content = concatenate_videoclips([video_content, video_content])
@@ -87,7 +89,7 @@ async def main():
     final_v = concatenate_videoclips([thumbnail_clip, main_video])
     final_v.write_videofile("final.mp4", fps=24, codec="libx264")
 
-    # STEP 7: Upload & Final Link
+    # STEP 7: Upload
     print("🚀 STEP 7: Publishing to Dailymotion...")
     auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
     token_resp = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
@@ -111,9 +113,9 @@ async def main():
                                  }).json()
         
         if "id" in create_v:
-            print("\n" + "*"*50)
-            print(f"🔥 VIDEO LINK: https://www.dailymotion.com/video/{create_v['id']}")
-            print("*"*50 + "\n")
+            print("\n" + "="*50)
+            print(f"🔥 SUCCESS! VIDEO LINK: https://www.dailymotion.com/video/{create_v['id']}")
+            print("="*50 + "\n")
             
             # تنظيف
             os.remove("final.mp4")
@@ -121,7 +123,7 @@ async def main():
             for f in os.listdir():
                 if f.startswith("temp_"): os.remove(f)
     else:
-        print("❌ Auth Failed")
+        print(f"❌ Auth Failed: {token_resp}")
 
 if __name__ == "__main__":
     asyncio.run(main())
