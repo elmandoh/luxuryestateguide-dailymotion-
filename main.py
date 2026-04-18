@@ -11,35 +11,44 @@ DM_SECRET = os.getenv("DM_API_SECRET")
 DM_USER = os.getenv("DM_USER")
 DM_PASS = os.getenv("DM_PASS")
 
-# مصدر أخبار الألعاب
-NEWS_RSS = "https://www.ign.com/rss/articles/feed.xml"
+# مصادر أخبار الألعاب - هنستخدم أكتر من مصدر لضمان الشغل
+NEWS_SOURCES = [
+    "https://www.gamespot.com/feeds/news/",
+    "https://www.ign.com/rss/articles/feed.xml"
+]
 
 async def main():
     print("🚀 STEP 1: Fetching Gaming Stories...")
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    resp = requests.get(NEWS_RSS, headers=headers)
-    feed = feedparser.parse(resp.content)
-    
-    if not feed.entries: 
-        print("❌ No entries found in RSS."); return
+    feed = None
+    for url in NEWS_SOURCES:
+        try:
+            resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            temp_feed = feedparser.parse(resp.content)
+            if temp_feed.entries:
+                feed = temp_feed
+                print(f"✅ Success fetching from: {url}")
+                break
+        except: continue
 
-    # أخذ أول خبر متاح فوراً للتجربة وتخطي فحص التكرار مؤقتاً
+    if not feed or not feed.entries:
+        print("❌ ALL RSS Sources failed. Checking connection..."); return
+
     target = feed.entries[0]
-    print(f"🌟 Target Story Found: {target.title}")
+    print(f"🌟 Target Story: {target.title}")
 
     # STEP 2: Groq AI
-    print("🤖 STEP 2: Generating Lore Script with Groq...")
+    print("🤖 STEP 2: Generating Lore Script...")
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Return ONLY a valid JSON object. You are a professional Gaming Lore expert."},
-                {"role": "user", "content": f"""Create viral GAMING LORE video data for: {target.title}. 
-                1. script: Write an immersive, mysterious story (at least 600 words).
-                2. search_queries: List of 12 keywords for Pexels visuals.
+                {"role": "system", "content": "Return ONLY a valid JSON object. You are a Gaming Lore expert."},
+                {"role": "user", "content": f"""Create viral GAMING LORE for: {target.title}. 
+                1. script: Mysterious story (600 words).
+                2. search_queries: 12 keywords for Pexels.
                 3. thumb_text: LORE SECRETS.
-                4. title: Create a SHOCKING title like '[Game] 2026: The Secrets'.
-                5. tags: Gaming, Lore, Secrets, Mystery, 2026."""}
+                4. title: Shocking Lore Title.
+                5. tags: Gaming, Lore, Secrets, 2026."""}
             ],
             response_format={"type": "json_object"}
         )
@@ -48,49 +57,39 @@ async def main():
         print(f"❌ Groq Error: {e}"); return
 
     clean_script = str(ai_data.get('script', ''))
-    
-    # STEP 3: Voice Generation
-    print("🎙️ STEP 3: Generating Voiceover...")
-    v_path = "voice.mp3"
-    await edge_tts.Communicate(clean_script, "en-US-GuyNeural").save(v_path)
-    audio = AudioFileClip(v_path)
 
-    # STEP 4: Gathering Visuals
-    print("📽️ STEP 4: Gathering Visuals from Pexels...")
-    h_pex = {"Authorization": PEXELS_API}
+    # STEP 3: Voice
+    print("🎙️ STEP 3: Generating Voiceover...")
+    await edge_tts.Communicate(clean_script, "en-US-GuyNeural").save("voice.mp3")
+    audio = AudioFileClip("voice.mp3")
+
+    # STEP 4: Visuals
+    print("📽️ STEP 4: Gathering Visuals...")
     clips = []
-    for query in ai_data['search_queries']:
-        v_url_api = f"https://api.pexels.com/videos/search?query={query}&per_page=2&orientation=landscape"
+    h_pex = {"Authorization": PEXELS_API}
+    for query in ai_data['search_queries'][:8]: # تقليل الكويريز لسرعة البحث
         try:
-            v_res = requests.get(v_url_api, headers=h_pex).json()
+            v_res = requests.get(f"https://api.pexels.com/videos/search?query={query}&per_page=1", headers=h_pex).json()
             for v in v_res.get('videos', []):
                 v_url = v['video_files'][0]['link']
                 v_name = f"temp_{len(clips)}.mp4"
                 with open(v_name, "wb") as f: f.write(requests.get(v_url).content)
-                clip = VideoFileClip(v_name).resized(width=1920).without_audio()
-                clips.append(clip)
-                if len(clips) >= 20: break 
+                clips.append(VideoFileClip(v_name).resized(width=1920).without_audio())
         except: continue
 
-    if not clips: 
-        print("❌ No clips found."); return
+    if not clips: return
 
-    # STEP 5: Thumbnail Frame
-    thumb_bg = ColorClip(size=(1920, 1080), color=(15, 15, 15)).with_duration(1.5)
-    thumb_txt = TextClip(text="GAMING LORE", font_size=150, color='yellow', size=(1800, None), method='caption').with_duration(1.5).with_position('center')
-    thumbnail_clip = CompositeVideoClip([thumb_bg, thumb_txt])
-
-    # STEP 6: Rendering
-    print("🎬 STEP 6: Rendering Video (This will take a minute)...")
+    # STEP 5 & 6: Rendering
+    print("🎬 STEP 6: Rendering (Be patient)...")
     video_content = concatenate_videoclips(clips, method="compose")
     while video_content.duration < audio.duration:
         video_content = concatenate_videoclips([video_content, video_content])
-    main_video = video_content.subclipped(0, audio.duration).with_audio(audio)
-    final_v = concatenate_videoclips([thumbnail_clip, main_video])
+    
+    final_v = video_content.subclipped(0, audio.duration).with_audio(audio)
     final_v.write_videofile("final.mp4", fps=24, codec="libx264")
 
     # STEP 7: Upload
-    print("🚀 STEP 7: Publishing to Dailymotion...")
+    print("🚀 STEP 7: Publishing...")
     auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
     token_resp = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
     
@@ -105,25 +104,17 @@ async def main():
                                  data={
                                      "url": f_url,
                                      "title": ai_data.get('title', target.title)[:100],
-                                     "description": f"{clean_script[:2900]}\n\n#Gaming #Lore #Mystery",
+                                     "description": f"{clean_script[:2800]}\n\n#Gaming #Lore #2026",
                                      "published": "true",
                                      "channel": "videogames", 
-                                     "tags": "Gaming,Lore,Mystery,2026",
+                                     "tags": "Gaming,Lore,Mystery",
                                      "is_created_for_kids": "false"
                                  }).json()
         
         if "id" in create_v:
             print("\n" + "="*50)
-            print(f"🔥 SUCCESS! VIDEO LINK: https://www.dailymotion.com/video/{create_v['id']}")
+            print(f"🔥 VIDEO READY: https://www.dailymotion.com/video/{create_v['id']}")
             print("="*50 + "\n")
-            
-            # تنظيف
-            os.remove("final.mp4")
-            os.remove("voice.mp3")
-            for f in os.listdir():
-                if f.startswith("temp_"): os.remove(f)
-    else:
-        print(f"❌ Auth Failed: {token_resp}")
 
 if __name__ == "__main__":
     asyncio.run(main())
