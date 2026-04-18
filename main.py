@@ -15,21 +15,15 @@ DM_PASS = os.getenv("DM_PASS")
 NEWS_RSS = "https://www.ign.com/rss/articles/feed.xml"
 
 async def main():
-    print("🚀 STEP 1: Fetching Gaming Stories...")
+    print("🚀 STEP 1: Fetching Gaming Lore Stories...")
     headers = {'User-Agent': 'Mozilla/5.0'}
     resp = requests.get(NEWS_RSS, headers=headers)
     feed = feedparser.parse(resp.content)
     
     if not feed.entries: return
 
-    processed = []
-    if os.path.exists("last_post.txt"):
-        with open("last_post.txt", "r") as f: processed = f.read().splitlines()
-
-    target = next((e for e in feed.entries[:15] if e.title not in processed), None)
-    if not target: 
-        print("⚠️ No new stories found."); return
-
+    # سنختار أول خبر متاح فوراً للتجربة (حتى لو مكرر)
+    target = feed.entries[0]
     print(f"🌟 Target Story: {target.title}")
 
     # STEP 2: Groq AI - توليد قصة Lore وتاجات جيمنج
@@ -93,7 +87,7 @@ async def main():
     final_v = concatenate_videoclips([thumbnail_clip, main_video])
     final_v.write_videofile("final.mp4", fps=24, codec="libx264")
 
-    # STEP 7: Upload & Cleanup
+    # STEP 7: Upload & Final Link
     print("🚀 STEP 7: Publishing to Dailymotion...")
     auth = {"grant_type": "password", "client_id": DM_KEY, "client_secret": DM_SECRET, "username": DM_USER, "password": DM_PASS, "scope": "manage_videos"}
     token_resp = requests.post("https://api.dailymotion.com/oauth/token", data=auth).json()
@@ -111,15 +105,17 @@ async def main():
                                      "title": ai_data.get('title', target.title)[:100],
                                      "description": f"{clean_script[:2900]}\n\n#Gaming #Lore #Mystery",
                                      "published": "true",
-                                     "channel": "videogames", # القسم المخصص للألعاب
+                                     "channel": "videogames", 
                                      "tags": "Gaming,Lore,Mystery,2026",
                                      "is_created_for_kids": "false"
                                  }).json()
         
         if "id" in create_v:
-            print(f"\n✅ SUCCESS! Video URL: https://www.dailymotion.com/video/{create_v['id']}\n")
-            with open("last_post.txt", "a") as f: f.write(target.title + "\n")
+            print("\n" + "*"*50)
+            print(f"🔥 VIDEO LINK: https://www.dailymotion.com/video/{create_v['id']}")
+            print("*"*50 + "\n")
             
+            # تنظيف
             os.remove("final.mp4")
             os.remove("voice.mp3")
             for f in os.listdir():
