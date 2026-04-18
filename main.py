@@ -12,7 +12,7 @@ DM_USER = os.getenv("DM_USER")
 DM_PASS = os.getenv("DM_PASS")
 
 # مصدر الأخبار العالمية لضمان عائد مادي مرتفع
-NEWS_RSS = "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
+NEWS_RSS = "https://www.ign.com/rss/articles/feed.xml"
 
 async def main():
     print("🚀 STEP 1: Fetching High-Value News...")
